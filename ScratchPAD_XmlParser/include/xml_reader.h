@@ -24,6 +24,10 @@ public:
 	 xml_doc() = default;
 	~xml_doc() = default;
 
+private:
+	xml_doc(const xml_doc& Rhs) = delete;
+	xml_doc(xml_doc&& Rhs) = delete;
+
 public:
 	bool Open(const char* Path);
 	bool IsOpen() const;
@@ -31,6 +35,15 @@ public:
 
 public:
 	inline string& GetBufferRef() const { return FileHandle->_Buffer; }
+
+	inline void SetVersion(string DocVersion) { Version = DocVersion; }
+	inline string GetVersion() const { return Version; }
+
+	inline void SetEncoding(string DocEncoding) { Encoding = DocEncoding; }
+	inline string GetEncoding() const { return Encoding; }
+
+	inline void SetStandaloneDecl(string DocStandaloneDecl) { StandaloneDecl = DocStandaloneDecl; }
+	inline string GetStandalone() const { return StandaloneDecl; }
 
 public:
 	static xml_doc* CreateAndOpen(const char* Path);
@@ -40,10 +53,11 @@ private:
 	file* FileHandle;
 
 	// xml doc state members
-	uint16_t Version;
-	string VersionString;
-	bool ParsedTypeAndDecl;
+	string Version;
+	string Encoding;
+	string StandaloneDecl;
 
+	bool ParsedTypeAndDecl;
 };
 
 #define MarkupTagTypeIndex(MarkupTag) (static_cast<int>((MarkupTag)))
@@ -77,6 +91,7 @@ struct xml_builtin_markup_tag_attribute
 	xml_builtin_markup_tag_attributes AttributeName;
 	const char* ExpectedBytes;
 	size_t ByteCount;
+	string Value;
 };
 
 enum class xml_builtin_markup_tags
@@ -121,6 +136,10 @@ public:
 	 xml_reader() = default;
 	~xml_reader() = default;
 
+private:
+	xml_reader(const xml_reader& Rhs) = delete;
+	xml_reader(xml_reader&& Rhs) = delete;
+
 public:
 	bool Read(xml_doc* Doc);
 
@@ -139,6 +158,8 @@ private:
 	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
 	void Rewind(size_t ByteCount = 1);
 	bool IsWhitespace() const;
+
+	void PopAttributeValueStack();
 
 private:
 	bool TryToParseVersionAttribute(bool RewindMirror = false);
@@ -171,6 +192,9 @@ public:
 	}
 
 private:
+	// the current document were 
+	// suppose to be reading
+	xml_doc* Doc;
 
 	// Current Reading Mode
 	xml_reader_mode Mode;
@@ -190,6 +214,11 @@ private:
 
 	// Reading State flags
 	bool EndOfBuffer;
+
+	inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
+
+	string AttributeValueStack[ATTRIBUTE_VALUE_STACK_COUNT];
+	size_t CurrentAttributeValueCount;
 
 };
 

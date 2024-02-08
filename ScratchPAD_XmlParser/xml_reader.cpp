@@ -281,12 +281,8 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 {
 	bool Parsed = false;
 
-	string ValueBuffer;
-
 	if(TryToParseQuote(RewindMirror))
 	{
-		size_t BytesAdvanced = 0;
-
 		while(SelectedByteMirror != BufferEnd)
 		{
 			if(TryToParseQuote(RewindMirror))
@@ -295,11 +291,14 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 				break;
 			}
 
-			ValueBuffer.push_back(Extract(SelectedByteMirror));
-
-			BytesAdvanced++;
+			AttributeValueStack[CurrentAttributeValueCount].push_back(Extract(SelectedByteMirror));
 			SelectedByteMirror++;
 		}
+	}
+
+	if(Parsed)
+	{
+		CurrentAttributeValueCount++;
 	}
 
 	if(RewindMirror)
@@ -310,12 +309,22 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 	return Parsed;
 }
 
-bool xml_reader::Read(xml_doc* Doc)
+void xml_reader::PopAttributeValueStack()
+{
+	if(CurrentAttributeValueCount > 0)
+	{
+		CurrentAttributeValueCount--;
+	}
+}
+
+bool xml_reader::Read(xml_doc* NewDoc)
 {
 	if(!Doc->IsOpen())
 	{
 		return false;
 	}
+
+	Doc = NewDoc;
 
 	bool ReadResult = true;
 
@@ -358,6 +367,7 @@ bool xml_reader::Read(xml_doc* Doc)
 				if(IsPrologAndTypeDeclTag())
 				{
 					cout << "Found PrologAndTypeDeclTag\n";
+
 					Mode = XMLReaderMode(ReadingPrologAndTypeDeclTag);
 					Advance(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
 
@@ -384,8 +394,9 @@ bool xml_reader::Read(xml_doc* Doc)
 
 							if(TryToParseAttributeValue())
 							{
-								// parsed value
+								Doc->SetVersion(AttributeValueStack[CurrentAttributeValueCount]);
 
+								PopAttributeValueStack();
 							}
 						}
 					}
@@ -406,8 +417,9 @@ bool xml_reader::Read(xml_doc* Doc)
 
 							if(TryToParseAttributeValue())
 							{
-								// parsed value
+								Doc->SetEncoding(AttributeValueStack[CurrentAttributeValueCount]);
 
+								PopAttributeValueStack();
 							}
 						}
 					}
@@ -429,8 +441,9 @@ bool xml_reader::Read(xml_doc* Doc)
 
 							if(TryToParseAttributeValue())
 							{
-								// parsed value
+								Doc->SetStandaloneDecl(AttributeValueStack[CurrentAttributeValueCount]);
 
+								PopAttributeValueStack();
 							}
 						}
 					}
