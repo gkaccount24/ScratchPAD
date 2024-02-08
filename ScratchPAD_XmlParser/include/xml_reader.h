@@ -125,28 +125,28 @@ public:
 	bool Read(xml_doc* Doc);
 
 private:
-	void CopyByteRange(const char* SrcBytes, char* DstBytes, size_t SrcByteCount);
-	bool CompareBytes(const char* SrcBytes, size_t ByteCount);
+	bool CompareBytes(const char* SrcBytes, size_t ByteCount, bool RewindMirror = false);
 
-	bool IsCommentTag();
-	bool IsCharDataTag();
-	bool IsProcessingInstructionTag();
-	bool IsPrologAndTypeDeclTag();
-	bool IsCDataSectionTag();
+	bool IsCommentTag(bool RewindMirror = false);
+	bool IsCharDataTag(bool RewindMirror = false);
+	bool IsProcessingInstructionTag(bool RewindMirror = false);
+	bool IsPrologAndTypeDeclTag(bool RewindMirror = false);
+	bool IsCDataSectionTag(bool RewindMirror = false);
 
 	void SkipWS();
-	void Advance(size_t ByteCount = 1);
+
+	void Advance(size_t ByteCount = 1, bool LookAhead = false);
+	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
+	void Rewind(size_t ByteCount = 1);
 	bool IsWhitespace() const;
 
-	void RewindMirror();
-
 private:
-	bool TryToParseVersionAttribute();
-	bool TryToParseDocEncodingAttribute();
-	bool TryToParseStandaloneDeclAttribute();
-	bool TryToParseAttributeEquals();
-	bool TryToParseAttributeValue();
-	bool TryToParseQuote();
+	bool TryToParseVersionAttribute(bool RewindMirror = false);
+	bool TryToParseDocEncodingAttribute(bool RewindMirror = false);
+	bool TryToParseStandaloneDeclAttribute(bool RewindMirror = false);
+	bool TryToParseAttributeEquals(bool RewindMirror = false);
+	bool TryToParseAttributeValue(bool RewindMirror = false);
+	bool TryToParseQuote(bool RewindMirror = false);
 
 public:
 	inline static const xml_builtin_markup_tag* GetBuiltinMarkupTag(xml_builtin_markup_tags Tag)
