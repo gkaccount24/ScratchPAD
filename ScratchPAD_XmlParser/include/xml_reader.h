@@ -154,6 +154,8 @@ private:
 	bool IsPrologAndTypeDeclTag(bool RewindMirror = false);
 	bool IsCDataSectionTag(bool RewindMirror = false);
 
+	bool TryToParsePrologAndTypeDeclTag();
+
 	void SkipWS(bool LookAhead = false);
 
 	void Advance(size_t ByteCount = 1, bool LookAhead = false);
@@ -221,6 +223,9 @@ private:
 
 	string AttributeValueStack[ATTRIBUTE_VALUE_STACK_COUNT];
 	size_t CurrentAttributeValueCount;
+
+
+
 
 };
 

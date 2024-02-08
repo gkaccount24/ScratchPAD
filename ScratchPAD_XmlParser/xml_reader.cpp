@@ -333,6 +333,127 @@ void xml_reader::PopAttributeValueStack()
 	}
 }
 
+bool xml_reader::TryToParsePrologAndTypeDeclTag()
+{
+	bool Success = false;
+
+	if(IsPrologAndTypeDeclTag())
+	{
+		// set our new xml reading mode
+		Mode = XMLReaderMode(ReadingPrologAndTypeDeclTag);
+
+		// advance xml decl token length
+		Advance(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
+
+		// prepare/cleanup for next token/lexeme
+		SkipWS();
+
+		// we need to parse the version attribute
+		// we need to parse the encoding attribute
+		// we need to parse the standalone attribute
+		// we need to parse any Name tokens
+
+		/***
+		*** MAYBE DO THIS:
+		*** LOOP OVER ARRAY OF ATTRIBUTES FOR THE XML DECL TAG
+		*** TRY TO PARSE THEM ITERATIVELY, and then call a generic
+		*** TryToParseAttribute() function?
+		***/
+
+		// try to parse our version lexeme
+		if(TryToParseVersionAttribute())
+		{
+			// parsed xml version number
+			Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ByteCount);
+
+			SkipWS();
+
+			if(TryToParseAttributeEquals())
+			{
+				// parsed equals
+
+				Advance();
+				SkipWS();
+
+				/** AT THIS POINT WE DEFINITELY
+				*** NEED TO EXPECT AN ATTRIBUTE VALUE
+				*** SO WE KNOW FOR A FACT
+				*** OUR Selectedbyte AND THE MIRROR after the last
+				*** Advancement will be equal
+				** to a quotation
+				*/
+				if(TryToParseAttributeValue())
+				{
+					Doc->SetVersion(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+					Advance(Doc->GetVersion().size() + 2);
+
+					PopAttributeValueStack();
+				}
+			}
+		}
+
+		SkipWS();
+
+		if(TryToParseDocEncodingAttribute())
+		{
+			// parsed xml doc encoding
+			Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ByteCount);
+
+			SkipWS();
+
+			if(TryToParseAttributeEquals())
+			{
+				// parsed equals
+
+				Advance();
+				SkipWS();
+
+				if(TryToParseAttributeValue())
+				{
+					Doc->SetEncoding(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+					Advance(Doc->GetEncoding().size() + 2);
+
+					PopAttributeValueStack();
+				}
+			}
+		}
+
+		SkipWS();
+
+		if(TryToParseStandaloneDeclAttribute())
+		{
+			// parsed xml standalone decl
+				
+			Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ByteCount);
+
+			SkipWS();
+
+			if(TryToParseAttributeEquals())
+			{
+				// parsed equals
+
+				Advance();
+				SkipWS();
+
+				if(TryToParseAttributeValue())
+				{
+					Doc->SetStandaloneDecl(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+					Advance(Doc->GetStandaloneDecl().size() + 2);
+
+					PopAttributeValueStack();
+				}
+			}
+		}
+
+		SkipWS();
+	}
+
+	return Success;
+}
+
 bool xml_reader::Read(xml_doc* NewDoc)
 {
 	if(!NewDoc->IsOpen())
@@ -380,108 +501,10 @@ bool xml_reader::Read(xml_doc* NewDoc)
 				// processing instructions, 
 				// XML declarations,
 				// text declarations
-				if(IsPrologAndTypeDeclTag())
+
+				if(TryToParsePrologAndTypeDeclTag())
 				{
-					cout << "Found PrologAndTypeDeclTag\n";
-
-					Mode = XMLReaderMode(ReadingPrologAndTypeDeclTag);
-					Advance(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
-
-					SkipWS();
-
-					// we need to parse the version attribute
-					// we need to parse the encoding attribute
-					// we need to parse the standalone attribute
-					// we need to parse any Name tokens
-
-					if(TryToParseVersionAttribute())
-					{
-						// parsed xml version number
-						Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ByteCount);
-
-						SkipWS();
-
-						if(TryToParseAttributeEquals())
-						{
-							// parsed equals
-
-							Advance();
-							SkipWS();
-
-							/** AT THIS POINT WE DEFINITELY
-							*** NEED TO EXPECT AN ATTRIBUTE VALUE
-							*** SO WE KNOW FOR A FACT
-							*** OUR Selectedbyte AND THE MIRROR after the last
-							*** Advancement will be equal
-							** to a quotation
-							*/
-							if(TryToParseAttributeValue())
-							{
-								Doc->SetVersion(AttributeValueStack[CurrentAttributeValueCount - 1]);
-
-								Advance(Doc->GetVersion().size() + 2);
-
-								PopAttributeValueStack();
-							}
-						}
-					}
-
-					SkipWS();
-
-					if(TryToParseDocEncodingAttribute())
-					{
-						// parsed xml doc encoding
-						Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ByteCount);
-
-						SkipWS();
-
-						if(TryToParseAttributeEquals())
-						{
-							// parsed equals
-
-							Advance();
-							SkipWS();
-
-							if(TryToParseAttributeValue())
-							{
-								Doc->SetEncoding(AttributeValueStack[CurrentAttributeValueCount - 1]);
-
-								Advance(Doc->GetEncoding().size() + 2);
-
-								PopAttributeValueStack();
-							}
-						}
-					}
-
-					SkipWS();
-
-					if(TryToParseStandaloneDeclAttribute())
-					{
-						// parsed xml standalone decl
-							
-						Advance(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ByteCount);
-
-						SkipWS();
-
-						if(TryToParseAttributeEquals())
-						{
-							// parsed equals
-
-							Advance();
-							SkipWS();
-
-							if(TryToParseAttributeValue())
-							{
-								Doc->SetStandaloneDecl(AttributeValueStack[CurrentAttributeValueCount - 1]);
-
-								Advance(Doc->GetStandaloneDecl().size() + 2);
-
-								PopAttributeValueStack();
-							}
-						}
-					}
-
-					SkipWS();
+					cout << "parsed prolog and type decl tag\n";
 				}
 				else if(IsCommentTag())
 				{
