@@ -126,7 +126,7 @@ public:
 
 private:
 	void CopyByteRange(const char* SrcBytes, char* DstBytes, size_t SrcByteCount);
-	bool CompareBytes(const char* SelectedByteCopy, const char* SrcBytes, size_t ByteCount);
+	bool CompareBytes(const char* SrcBytes, size_t ByteCount);
 
 	bool IsCommentTag();
 	bool IsCharDataTag();
@@ -137,6 +137,8 @@ private:
 	void SkipWS();
 	void Advance(size_t ByteCount = 1);
 	bool IsWhitespace() const;
+
+	void RewindMirror();
 
 private:
 	bool TryToParseVersionAttribute();

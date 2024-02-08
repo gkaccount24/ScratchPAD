@@ -62,6 +62,15 @@ xml_doc* xml_doc::Create(const char* Path)
 *** XML_READER
 */
 
+/**
+** NOTE REGARDING HOW THIS WORKS
+** MY IDEA IS THIS: 
+** SelectedByte and SelectedByteMirror will always point to the same memory locations
+** EXCEPT when we do a lookahead, in which case SelectedByteMirror will advance past
+** the ACTUAL SelectedByte, ANY LOOKAHEAD OPERATION after its complete, should rewind
+** the Mirror
+*/
+
 bool xml_reader::IsWhitespace() const
 {
 	bool Whitespace = Extract(SelectedByte) == ' ' ||
@@ -77,15 +86,17 @@ void xml_reader::Advance(size_t ByteCount)
 	if(BytesAvailable > ByteCount)
 	{
 		SelectedByte += ByteCount;
-		BufferPos += ByteCount;
+		SelectedByteMirror += ByteCount;
 
+		BufferPos += ByteCount;
 		BytesAvailable -= ByteCount;
 	}
 	else
 	{
 		SelectedByte += BytesAvailable;
-		BufferPos += BytesAvailable;
+		SelectedByteMirror += BytesAvailable;
 
+		BufferPos += BytesAvailable;
 		BytesAvailable = 0;
 
 		EndOfBuffer = true;
@@ -105,7 +116,12 @@ void xml_reader::CopyByteRange(const char* SrcBytes, char* DstBytes, size_t SrcB
 	// NOTHING YET
 }
 
-bool xml_reader::CompareBytes(const char* SelectedByteCopy, const char* SrcBytes, size_t ByteCount)
+void xml_reader::RewindMirror()
+{
+	SelectedByteMirror = SelectedByte;
+}
+
+bool xml_reader::CompareBytes(const char* SrcBytes, size_t ByteCount)
 {
 	if(ByteCount > BytesAvailable)
 	{
@@ -116,15 +132,18 @@ bool xml_reader::CompareBytes(const char* SelectedByteCopy, const char* SrcBytes
 
 	for(size_t CharIndex = 0; CharIndex < ByteCount; CharIndex++)
 	{
-		if(SelectedByteCopy && Extract(SelectedByteCopy) != SrcBytes[CharIndex])
+		if(SelectedByteMirror && Extract(SelectedByteMirror) != SrcBytes[CharIndex])
 		{
 			// we have a problem
 			Equal = false;
 			break;
 		}
 
-		SelectedByteCopy++;
+		SelectedByteMirror++;
 	}
+
+	// rewind the mirror
+	SelectedByteMirror = SelectedByte;
 
 	return Equal;
 }
@@ -133,8 +152,8 @@ bool xml_reader::IsCommentTag()
 {
 	bool Yes = true;
 
-	Yes = CompareBytes(SelectedByte, BuiltinMarkupTag(CommentTag)->StartText, 
-									 BuiltinMarkupTag(CommentTag)->StartTextLength);
+	Yes = CompareBytes(BuiltinMarkupTag(CommentTag)->StartText, 
+					   BuiltinMarkupTag(CommentTag)->StartTextLength);
 
 	return Yes;
 }
@@ -143,8 +162,8 @@ bool xml_reader::IsCharDataTag()
 {
 	bool Yes = true;
 
-	Yes = CompareBytes(SelectedByte, BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
-								     BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength);
+	Yes = CompareBytes(BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
+					   BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength);
 
 	return Yes;
 }
@@ -153,8 +172,8 @@ bool xml_reader::IsProcessingInstructionTag()
 {
 	bool Yes = true;
 
-	Yes = CompareBytes(SelectedByte, BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
-									 BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength);
+	Yes = CompareBytes(BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
+					   BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength);
 
 	return Yes;
 }
@@ -163,8 +182,8 @@ bool xml_reader::IsPrologAndTypeDeclTag()
 {
 	bool Yes = true;
 
-	Yes = CompareBytes(SelectedByte, BuiltinMarkupTag(PrologAndTypeDeclTag)->StartText, 
-									 BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
+	Yes = CompareBytes(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartText, 
+					   BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
 
 	return Yes;
 }
@@ -173,8 +192,8 @@ bool xml_reader::IsCDataSectionTag()
 {
 	bool Yes = true;
 
-	Yes = CompareBytes(SelectedByte, BuiltinMarkupTag(CDataSectionTag)->StartText, 
-									 BuiltinMarkupTag(CDataSectionTag)->StartTextLength);
+	Yes = CompareBytes(BuiltinMarkupTag(CDataSectionTag)->StartText, 
+					   BuiltinMarkupTag(CDataSectionTag)->StartTextLength);
 
 	return Yes;
 }
@@ -183,8 +202,8 @@ bool xml_reader::TryToParseVersionAttribute()
 {
 	bool Parsed = false;
 
-	Parsed = CompareBytes(SelectedByteMirror, BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ExpectedBytes,
-											  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ByteCount);
+	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ExpectedBytes,
+						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ByteCount);
 
 	return Parsed;
 }
@@ -193,8 +212,8 @@ bool xml_reader::TryToParseDocEncodingAttribute()
 {
 	bool Parsed = false;
 
-	Parsed = CompareBytes(SelectedByteMirror, BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ExpectedBytes,
-									 		  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ByteCount);
+	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ExpectedBytes,
+						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ByteCount);
 
 	return Parsed;
 }
@@ -203,8 +222,8 @@ bool xml_reader::TryToParseStandaloneDeclAttribute()
 {
 	bool Parsed = false;
 
-	Parsed = CompareBytes(SelectedByteMirror, BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ExpectedBytes,
-											  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ByteCount);
+	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ExpectedBytes,
+						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ByteCount);
 
 	return Parsed;
 }
@@ -213,7 +232,7 @@ bool xml_reader::TryToParseAttributeEquals()
 {
 	bool Parsed = false;
 
-	Parsed = CompareBytes(SelectedByteMirror, "=", 1);
+	Parsed = CompareBytes("=", 1);
 
 	return Parsed;
 }
@@ -222,7 +241,7 @@ bool xml_reader::TryToParseQuote()
 {
 	bool Parsed = false;
 
-	Parsed = CompareBytes(SelectedByteMirror, "\"", 1);
+	Parsed = CompareBytes("\"", 1);
 
 	return Parsed;
 }
@@ -235,6 +254,9 @@ bool xml_reader::TryToParseAttributeValue()
 
 	if(TryToParseQuote())
 	{
+		// do we advance here???
+
+
 		size_t BytesAdvanced = 0;
 
 		while(SelectedByteMirror != BufferEnd)
@@ -271,8 +293,8 @@ bool xml_reader::Read(xml_doc* Doc)
 	BytesAvailable = BufferSize;
 
 	SelectedByte = BufferBegin;
+	SelectedByteMirror = SelectedByte;
 	BufferPos = 0;
-
 	EndOfBuffer = false;
 
 	if(SelectedByte == BufferEnd)
