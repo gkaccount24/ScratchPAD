@@ -43,7 +43,11 @@ public:
 	inline string GetEncoding() const { return Encoding; }
 
 	inline void SetStandaloneDecl(string DocStandaloneDecl) { StandaloneDecl = DocStandaloneDecl; }
-	inline string GetStandalone() const { return StandaloneDecl; }
+	inline string GetStandaloneDecl() const { return StandaloneDecl; }
+
+	inline bool ParsedEncoding() const { return !Encoding.empty(); }
+	inline bool ParsedVersion() const { return !Version.empty(); }
+	inline bool ParsedStandaloneDecl() const { return !StandaloneDecl.empty(); }
 
 public:
 	static xml_doc* CreateAndOpen(const char* Path);
@@ -56,8 +60,6 @@ private:
 	string Version;
 	string Encoding;
 	string StandaloneDecl;
-
-	bool ParsedTypeAndDecl;
 };
 
 #define MarkupTagTypeIndex(MarkupTag) (static_cast<int>((MarkupTag)))
@@ -152,12 +154,12 @@ private:
 	bool IsPrologAndTypeDeclTag(bool RewindMirror = false);
 	bool IsCDataSectionTag(bool RewindMirror = false);
 
-	void SkipWS();
+	void SkipWS(bool LookAhead = false);
 
 	void Advance(size_t ByteCount = 1, bool LookAhead = false);
 	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
 	void Rewind(size_t ByteCount = 1);
-	bool IsWhitespace() const;
+	bool IsWhitespace(bool LookAhead);
 
 	void PopAttributeValueStack();
 

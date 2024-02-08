@@ -40,7 +40,8 @@ xml_doc* xml_doc::CreateAndOpen(const char* Path)
 
 	if(!Doc->Open(Path))
 	{
-		return nullptr;
+		delete Doc;
+		Doc = nullptr;
 	}
 
 	return Doc;
@@ -76,12 +77,24 @@ xml_doc* xml_doc::Create(const char* Path)
 * selected before the look ahead, then when we call Advance(), we advance the SelectedByte to the mirror
 */
 
-bool xml_reader::IsWhitespace() const
+bool xml_reader::IsWhitespace(bool LookAhead)
 {
-	bool Whitespace = Extract(SelectedByte) == ' ' ||
-					  Extract(SelectedByte) == '\t' ||
-					  Extract(SelectedByte) == '\r' ||
-					  Extract(SelectedByte) == '\n';
+	bool Whitespace = false;
+
+	if(!LookAhead)
+	{
+		Whitespace = Extract(SelectedByte) == ' ' ||
+					 Extract(SelectedByte) == '\t' ||
+				     Extract(SelectedByte) == '\r' ||
+					 Extract(SelectedByte) == '\n';
+	}
+	else
+	{
+		Whitespace = Extract(SelectedByteMirror) == ' ' ||
+					 Extract(SelectedByteMirror) == '\t' ||
+				     Extract(SelectedByteMirror) == '\r' ||
+				     Extract(SelectedByteMirror) == '\n';
+	}
 
 	return Whitespace;
 }
@@ -117,6 +130,7 @@ void xml_reader::Advance(size_t ByteCount, bool LookAhead)
 			BufferPos += ByteCount;
 
 			SelectedByteMirror = SelectedByte;
+			BytesAvailable -= ByteCount;
 		}
 		else
 		{
@@ -142,11 +156,11 @@ void xml_reader::Advance(size_t ByteCount, bool LookAhead)
 	}
 }
 
-void xml_reader::SkipWS()
+void xml_reader::SkipWS(bool LookAhead)
 {
-	while(!EndOfBuffer && IsWhitespace())
+	while(!EndOfBuffer && IsWhitespace(LookAhead))
 	{
-		Advance();
+		Advance(1, LookAhead);
 	}
 }
 
@@ -313,13 +327,15 @@ void xml_reader::PopAttributeValueStack()
 {
 	if(CurrentAttributeValueCount > 0)
 	{
+		AttributeValueStack[CurrentAttributeValueCount - 1].clear();
+
 		CurrentAttributeValueCount--;
 	}
 }
 
 bool xml_reader::Read(xml_doc* NewDoc)
 {
-	if(!Doc->IsOpen())
+	if(!NewDoc->IsOpen())
 	{
 		return false;
 	}
@@ -392,14 +408,25 @@ bool xml_reader::Read(xml_doc* NewDoc)
 							Advance();
 							SkipWS();
 
+							/** AT THIS POINT WE DEFINITELY
+							*** NEED TO EXPECT AN ATTRIBUTE VALUE
+							*** SO WE KNOW FOR A FACT
+							*** OUR Selectedbyte AND THE MIRROR after the last
+							*** Advancement will be equal
+							** to a quotation
+							*/
 							if(TryToParseAttributeValue())
 							{
-								Doc->SetVersion(AttributeValueStack[CurrentAttributeValueCount]);
+								Doc->SetVersion(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+								Advance(Doc->GetVersion().size() + 2);
 
 								PopAttributeValueStack();
 							}
 						}
 					}
+
+					SkipWS();
 
 					if(TryToParseDocEncodingAttribute())
 					{
@@ -417,12 +444,16 @@ bool xml_reader::Read(xml_doc* NewDoc)
 
 							if(TryToParseAttributeValue())
 							{
-								Doc->SetEncoding(AttributeValueStack[CurrentAttributeValueCount]);
+								Doc->SetEncoding(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+								Advance(Doc->GetEncoding().size() + 2);
 
 								PopAttributeValueStack();
 							}
 						}
 					}
+
+					SkipWS();
 
 					if(TryToParseStandaloneDeclAttribute())
 					{
@@ -441,12 +472,16 @@ bool xml_reader::Read(xml_doc* NewDoc)
 
 							if(TryToParseAttributeValue())
 							{
-								Doc->SetStandaloneDecl(AttributeValueStack[CurrentAttributeValueCount]);
+								Doc->SetStandaloneDecl(AttributeValueStack[CurrentAttributeValueCount - 1]);
+
+								Advance(Doc->GetStandaloneDecl().size() + 2);
 
 								PopAttributeValueStack();
 							}
 						}
 					}
+
+					SkipWS();
 				}
 				else if(IsCommentTag())
 				{
@@ -473,6 +508,16 @@ bool xml_reader::Read(xml_doc* NewDoc)
 				{
 					cout << "Found CharDataTag\n";
 					Mode = XMLReaderMode(ReadingCharDataTag);
+				}
+
+				break;
+			}
+			case '?':
+			{
+				if(Mode == XMLReaderMode(ReadingPrologAndTypeDeclTag))
+				{
+					// i dont think we have to do anything here but set a boolean
+					// on the xml doc
 				}
 
 				break;
