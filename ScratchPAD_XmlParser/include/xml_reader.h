@@ -17,8 +17,16 @@ using std::string;
 #define Extract(SelectedByte)(*(SelectedByte))
 #define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
+enum class xml_doc_decl_attribute
+{
+	DECL_ATTRIBUTE_VERSION		  = 0,
+	DECL_ATTRIBUTE_ENCODING       = 1,
+	DECL_ATTRIBUTE_STANDALONEDECL = 2
+};
+
 class xml_doc 
 {
+	friend class xml_reader;
 
 public:
 	 xml_doc() = default;
@@ -36,18 +44,11 @@ public:
 public:
 	inline string& GetBufferRef() const { return FileHandle->_Buffer; }
 
-	inline void SetVersion(string DocVersion) { Version = DocVersion; }
-	inline string GetVersion() const { return Version; }
-
-	inline void SetEncoding(string DocEncoding) { Encoding = DocEncoding; }
-	inline string GetEncoding() const { return Encoding; }
-
-	inline void SetStandaloneDecl(string DocStandaloneDecl) { StandaloneDecl = DocStandaloneDecl; }
-	inline string GetStandaloneDecl() const { return StandaloneDecl; }
-
-	inline bool ParsedEncoding() const { return !Encoding.empty(); }
-	inline bool ParsedVersion() const { return !Version.empty(); }
-	inline bool ParsedStandaloneDecl() const { return !StandaloneDecl.empty(); }
+	void SetDocDeclAttribute(xml_doc_decl_attribute AttributeEnum, string Value);
+	
+	inline bool ParsedEncoding() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_ENCODING)].empty(); }
+	inline bool ParsedVersion() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_VERSION)].empty(); }
+	inline bool ParsedStandaloneDecl() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_STANDALONEDECL)].empty(); }
 
 public:
 	static xml_doc* CreateAndOpen(const char* Path);
@@ -57,9 +58,7 @@ private:
 	file* FileHandle;
 
 	// xml doc state members
-	string Version;
-	string Encoding;
-	string StandaloneDecl;
+	string DeclAttributes[3];
 };
 
 #define MarkupTagTypeIndex(MarkupTag) (static_cast<int>((MarkupTag)))
@@ -94,6 +93,7 @@ struct xml_builtin_markup_tag_attribute
 	const char* ExpectedBytes;
 	size_t ByteCount;
 	string Value;
+	bool Required;
 };
 
 enum class xml_builtin_markup_tags
