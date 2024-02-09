@@ -128,11 +128,14 @@ void xml_reader::LookAhead(size_t ByteCount, bool RewindMirror)
 	***
 	*/
 
-	Advance(ByteCount, true);
-
-	if(RewindMirror)
+	if(!IsWhitespace(true))
 	{
-		Rewind(ByteCount);
+		Advance(ByteCount, true);
+
+		if(RewindMirror)
+		{
+			Rewind(ByteCount);
+		}
 	}
 }
 
@@ -209,113 +212,15 @@ bool xml_reader::CompareBytes(const char* SrcBytes, size_t ByteCount, bool Rewin
 	return Equal;
 }
 
-bool xml_reader::IsCommentTag(bool RewindMirror)
-{
-	bool Yes = true;
-
-	Yes = CompareBytes(BuiltinMarkupTag(CommentTag)->StartText, 
-					   BuiltinMarkupTag(CommentTag)->StartTextLength, RewindMirror);
-
-	return Yes;
-}
-
-bool xml_reader::IsCharDataTag(bool RewindMirror)
-{
-	bool Yes = true;
-
-	Yes = CompareBytes(BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
-					   BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength, RewindMirror);
-
-	return Yes;
-}
-
-bool xml_reader::IsProcessingInstructionTag(bool RewindMirror)
-{
-	bool Yes = true;
-
-	Yes = CompareBytes(BuiltinMarkupTag(ProcessingInstructionTag)->StartText, 
-					   BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength, RewindMirror);
-
-	return Yes;
-}
-
-bool xml_reader::IsPrologAndTypeDeclTag(bool RewindMirror)
-{
-	bool Yes = true;
-
-	Yes = CompareBytes(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartText, 
-					   BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength, RewindMirror);
-
-	return Yes;
-}
-
-bool xml_reader::IsCDataSectionTag(bool RewindMirror)
-{
-	bool Yes = true;
-
-	Yes = CompareBytes(BuiltinMarkupTag(CDataSectionTag)->StartText, 
-					   BuiltinMarkupTag(CDataSectionTag)->StartTextLength, RewindMirror);
-
-	return Yes;
-}
-
-bool xml_reader::TryToParseVersionAttribute(bool RewindMirror)
-{
-	bool Parsed = false;
-
-	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ExpectedBytes,
-						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, XMLVersion).ByteCount, RewindMirror);
-
-	return Parsed;
-}
-
-bool xml_reader::TryToParseDocEncodingAttribute(bool RewindMirror)
-{
-	bool Parsed = false;
-
-	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ExpectedBytes,
-						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, DocEncoding).ByteCount, RewindMirror);
-
-	return Parsed;
-}
-
-bool xml_reader::TryToParseStandaloneDeclAttribute(bool RewindMirror)
-{
-	bool Parsed = false;
-
-	Parsed = CompareBytes(BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ExpectedBytes,
-						  BuiltinMarkupTagAttribute(PrologAndTypeDeclTag, StandaloneDecl).ByteCount, RewindMirror);
-
-	return Parsed;
-}
-
-bool xml_reader::TryToParseAttributeEquals(bool RewindMirror)
-{
-	bool Parsed = false;
-
-	Parsed = CompareBytes("=", 1, RewindMirror);
-
-	return Parsed;
-}
-
-bool xml_reader::TryToParseQuote(bool RewindMirror)
-{
-	bool Parsed = false;
-
-	Parsed = CompareBytes("\"", 1, RewindMirror);
-
-	return Parsed;
-}
-
 bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 {
 	bool Parsed = false;
 
-	if(TryToParseQuote(RewindMirror))
+	if(CompareBytes("\"", 1, RewindMirror))
 	{
 		while(SelectedByteMirror != BufferEnd)
 		{
-			if(TryToParseQuote(RewindMirror))
+			if(CompareBytes("\"", 1, RewindMirror))
 			{
 				Parsed = true;
 				break;
@@ -347,80 +252,6 @@ void xml_reader::PopAttributeValueStack()
 
 		CurrentAttributeValueCount--;
 	}
-}
-
-
-bool xml_reader::TryToParsePrologAndTypeDeclTag()
-{
-	bool Success = false;
-
-	if(IsPrologAndTypeDeclTag())
-	{
-		// set our new xml reading mode
-		Mode = XMLReaderMode(ReadingPrologAndTypeDeclTag);
-
-		// advance xml decl token length
-		Advance(BuiltinMarkupTag(PrologAndTypeDeclTag)->StartTextLength);
-
-		// prepare/cleanup for next token/lexeme
-		SkipWS();
-
-		for(size_t Index = 0; Index < BuiltinMarkupTag(PrologAndTypeDeclTag)->AttributeCount; Index++)
-		{
-			xml_builtin_markup_tag_attribute Attribute = BuiltinMarkupTag(PrologAndTypeDeclTag)->Attributes[Index];
-
-			if(CompareBytes(Attribute.ExpectedBytes, Attribute.ByteCount))
-			{
-				Advance(Attribute.ByteCount);
-				SkipWS();
-
-				if(!CompareBytes("=", 1))
-				{
-					Success = false;
-					break;
-				}
-
-				Advance();
-
-				SkipWS();
-
-				if(!TryToParseAttributeValue())
-				{
-					Success = false;
-					break;
-				}
-				else
-				{
-					Success = true;
-
-					Doc->SetDocDeclAttribute(static_cast<xml_doc_decl_attribute>(Index), AttributeValueStack[CurrentAttributeValueCount - 1]);
-
-					Advance(Doc->DeclAttributes[Index].size() + 2);
-
-					PopAttributeValueStack();
-				}
-			}
-			else
-			{
-				Success = false;
-				break;
-			}
-
-			SkipWS();
-		}
-
-		if(!CompareBytes("?>", 2))
-		{
-			Success = false;
-		}
-		else
-		{
-			Advance(2);
-			SkipWS();
-		}
-	}
-
-	return Success;
 }
 
 bool xml_reader::Read(xml_doc* NewDoc)
@@ -471,36 +302,102 @@ bool xml_reader::Read(xml_doc* NewDoc)
 				// XML declarations,
 				// text declarations
 
-				if(TryToParsePrologAndTypeDeclTag())
-				{
-					cout << "parsed prolog and type decl tag\n";
+				bool ReadingUserTag = true;
 
-				}
-				else if(IsCommentTag())
-				{
-					cout << "Found CommentTag\n";
-					Mode = XMLReaderMode(ReadingCommentTag);
+				const xml_builtin_markup_tag* MarkupTags = GetBuiltinMarkupTags();
 
-					Advance(BuiltinMarkupTag(CommentTag)->StartTextLength);
-				}
-				else if(IsProcessingInstructionTag())
+				for(size_t Index = 0; Index < BUILTIN_MARKUP_TAG_COUNT; Index++)
 				{
-					cout << "Found ProcessingInstructionTag\n";
-					Mode = XMLReaderMode(ReadingProcessingInstructionTag);
+					if(CompareBytes(MarkupTags[Index].StartText,
+									MarkupTags[Index].StartTextLength))
+					{
+						ReadingUserTag = false;
 
-					Advance(BuiltinMarkupTag(ProcessingInstructionTag)->StartTextLength);
-				}
-				else if(IsCDataSectionTag())
-				{
-					cout << "Found CDataSectionTag\n";
-					Mode = XMLReaderMode(ReadingCDataSectionTag);
+						LookAhead(MarkupTags[Index].StartTextLength);
+						SkipWS(true);
 
-					Advance(BuiltinMarkupTag(CDataSectionTag)->StartTextLength);
+						for(size_t JIndex = 0; JIndex < MarkupTags[Index].AttributeCount; JIndex++)
+						{
+							xml_builtin_markup_tag_attribute Attribute = MarkupTags[Index].Attributes[JIndex];
+
+							if(CompareBytes(Attribute.ExpectedBytes, Attribute.ByteCount))
+							{
+								SkipWS(true);
+
+								if(!CompareBytes("=", 1))
+								{
+									// Success = false;
+									break;
+								}
+
+								SkipWS(true);
+
+								if(!TryToParseAttributeValue())
+								{
+									// Success = false;
+									break;
+								}
+								else
+								{
+									if(MarkupTags[Index].TagType == xml_builtin_markup_tags::PrologAndTypeDeclTag)
+									{
+										Doc->SetDocDeclAttribute(static_cast<xml_doc_decl_attribute>(JIndex), AttributeValueStack[CurrentAttributeValueCount - 1]);
+										LookAhead(Doc->DeclAttributes[JIndex].size() + 2);
+									}
+									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CommentTag)
+									{
+
+									}
+									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::ProcessingInstructionTag)
+									{
+
+									}
+									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CDataSectionTag)
+									{
+
+									}
+									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CharDataTag)
+									{
+									}
+
+									PopAttributeValueStack();
+								}
+							}
+							else
+							{
+								if(MarkupTags[Index].AttributesExpectedInOrder)
+								{
+									//Success = false;
+									break;
+								}
+							}
+
+							SkipWS(true);
+						}
+
+						if(!CompareBytes(MarkupTags[Index].EndText,
+										 MarkupTags[Index].EndTextLength))
+						{
+							assert(0);
+							// missing end tag
+							// error out
+						}
+
+						LookAhead(MarkupTags[Index].EndTextLength);
+						SkipWS(true);
+					}
+					else
+					{
+						// this is an error
+						// return ErrorCode;
+						//	break;
+					}
 				}
-				else
+
+				if(ReadingUserTag)
 				{
-					cout << "Found CharDataTag\n";
-					Mode = XMLReaderMode(ReadingCharDataTag);
+
+
 				}
 
 				break;

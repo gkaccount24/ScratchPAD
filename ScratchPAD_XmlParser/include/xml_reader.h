@@ -98,11 +98,11 @@ struct xml_builtin_markup_tag_attribute
 
 enum class xml_builtin_markup_tags
 {
-	CommentTag = 0,
-	CharDataTag = 1,
+	PrologAndTypeDeclTag = 0,
+	CommentTag = 1,
 	ProcessingInstructionTag = 2,
-	PrologAndTypeDeclTag = 3,
-	CDataSectionTag = 4
+	CDataSectionTag = 3,
+	CharDataTag = 4
 };
 
 struct xml_builtin_markup_tag 
@@ -117,6 +117,7 @@ struct xml_builtin_markup_tag
 
 	xml_builtin_markup_tag_attribute* Attributes;
 	size_t AttributeCount;
+	bool AttributesExpectedInOrder;
 };
 
 #define XMLReaderMode(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
@@ -147,34 +148,18 @@ public:
 
 private:
 	bool CompareBytes(const char* SrcBytes, size_t ByteCount, bool RewindMirror = false);
-
-	bool IsCommentTag(bool RewindMirror = false);
-	bool IsCharDataTag(bool RewindMirror = false);
-	bool IsProcessingInstructionTag(bool RewindMirror = false);
-	bool IsPrologAndTypeDeclTag(bool RewindMirror = false);
-	bool IsCDataSectionTag(bool RewindMirror = false);
-
-	bool TryToParsePrologAndTypeDeclTag();
-
 	void SkipWS(bool LookAhead = false);
-
 	void Advance(size_t ByteCount = 1, bool LookAhead = false);
 	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
 	void Rewind(size_t ByteCount = 1);
 	bool IsWhitespace(bool LookAhead);
-
 	void PopAttributeValueStack();
 
 private:
-	bool TryToParseVersionAttribute(bool RewindMirror = false);
-	bool TryToParseDocEncodingAttribute(bool RewindMirror = false);
-	bool TryToParseStandaloneDeclAttribute(bool RewindMirror = false);
-	bool TryToParseAttributeEquals(bool RewindMirror = false);
 	bool TryToParseAttributeValue(bool RewindMirror = false);
-	bool TryToParseQuote(bool RewindMirror = false);
 
 public:
-	inline static const xml_builtin_markup_tag* GetBuiltinMarkupTag(xml_builtin_markup_tags Tag)
+	inline static const xml_builtin_markup_tag* GetBuiltinMarkupTags()
 	{
 		static xml_builtin_markup_tag_attribute XML_DECL_TAG_BUILTIN_ATTRIBUTES[]
 		{
@@ -185,14 +170,14 @@ public:
 
 		static xml_builtin_markup_tag BUILTIN_MARKUP_TAGS[BUILTIN_MARKUP_TAG_COUNT] 
 		{
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CommentTag), "<!--", 4, "-->", 3, 0, 0 },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CharDataTag), "<", 1, ">", 1, 0, 0 },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(ProcessingInstructionTag), "<?", 2, "?>", 2, 0, 0 },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", 5, "?>", 2, XML_DECL_TAG_BUILTIN_ATTRIBUTES, 3 },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CDataSectionTag), "<![DATA[", 9, "]]>", 4, 0, 0 },
+			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", 5, "?>", 2, XML_DECL_TAG_BUILTIN_ATTRIBUTES, 3, false },
+			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CommentTag), "<!--", 4, "-->", 3, 0, 0, false },
+			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(ProcessingInstructionTag), "<?", 2, "?>", 2, 0, 0, false },
+			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CDataSectionTag), "<![DATA[", 9, "]]>", 4, 0, 0, false },
+			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CharDataTag), "<", 1, ">", 1, 0, 0, false }
 		};
 
-		return &BUILTIN_MARKUP_TAGS[BuiltinMarkupTagIndex(Tag)];
+		return &BUILTIN_MARKUP_TAGS[0];
 	}
 
 private:
