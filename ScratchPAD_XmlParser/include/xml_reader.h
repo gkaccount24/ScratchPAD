@@ -56,11 +56,11 @@ struct xml_reader
 	// Reading State flags
 	bool EndOfBuffer;
 
-	// inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
-	// size_t AttributeValueCount;
+	vector<xml_markup*> MarkupNodeStack;
+	size_t				MarkupNodeStackCount;
 
-	vector<string> AttributeValueStack;
-	size_t		   AttributeValueCount;
+	vector<xml_markup_attribute*> AttributeValueStack;
+	size_t						  AttributeValueCount;
 
 	xml_reader(xml_document* XMLDoc);
 	~xml_reader();
@@ -71,11 +71,15 @@ struct xml_reader
 	void RemoveWS();
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
-	bool TryToParseDocumentAttributes();
+	bool TryToParseDocumentDeclarationMarkup();
 	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
 	bool TryToParseAttributeValue();
 
 	void PopAttributeValueStack();
+	void PopMarkupNodeStack();
+
+	void PushNewMarkup(const char* StartTag, const char* EndTag);
+	void PopNewMarkup();
 
 private:
 	xml_reader(const xml_reader& Rhs) = delete;

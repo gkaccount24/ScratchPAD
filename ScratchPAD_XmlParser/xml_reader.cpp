@@ -7,27 +7,12 @@
 #define Extract(SelectedByte)(*(SelectedByte))
 #define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
+#define MarkupDOM(NodeStack)(NodeStack[NodeStack.size() - 1])
+#define PushMarkupNode(NodeStack, Node)(NodeStack.push_back(Node))
+
 /**
 *** XML_READER
 */
-
-/**
-*** XML_TOKENS
-*/
-
-enum class xml_tokens
-{
-	DocumentDeclaration,
-	Comment,
-
-	GenericTag, 
-
-	AttributeName,
-	AttributeValue,
-
-	Equals,
-	String
-};
 
 xml_reader::xml_reader(xml_document* XMLDoc)
 {
@@ -165,6 +150,8 @@ bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 
 bool xml_reader::TryToParseAttributeValue()
 {
+	assert(!MarkupNodeStack.empty());
+
 	bool Parsed = false;
 	size_t TempByteCount = 0;
 
@@ -184,7 +171,9 @@ bool xml_reader::TryToParseAttributeValue()
 				break;
 			}
 
-			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteMirror));
+			// size_t NodeStackIndex = MarkupDOM(MarkupNodeStack)->Attributes.size() - 1;
+			// MarkupDOM(MarkupNodeStack)->Attributes[NodeStackIndex].push_back(new xml_markup());
+			// AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteMirror));
 
 			SelectedByteMirror++;
 			TempByteCount++;
@@ -235,16 +224,32 @@ bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount)
 	}
 }
 
-bool xml_reader::TryToParseDocumentAttributes()
+void xml_reader::PushNewMarkup(const char* StartTag, const char* EndTag)
 {
-	string FirstLexeme = "<?xml";
+	PushMarkupNode(MarkupNodeStack, xml_markup::Create(StartTag, EndTag));
+}
 
-	if(!BytesMatch(FirstLexeme.c_str(), FirstLexeme.size()))
+void xml_reader::PopNewMarkup()
+{
+	xml_markup* MarkupNode = MarkupNodeStack.back();
+	MarkupNodeStack.pop_back();
+
+	assert(MarkupNode);
+}
+
+bool xml_reader::TryToParseDocumentDeclarationMarkup()
+{
+	const string StartTag = "<?xml";
+	const string EndTag = "?>";
+
+	if(!BytesMatch(StartTag.c_str(), StartTag.size()))
 	{
 		// lexing error encountered
 		// report error & return;
 		return false;
 	}
+
+	PushNewMarkup(StartTag.c_str(), EndTag.c_str());
 
 	// expect ws following
 	// opening tag
@@ -257,7 +262,8 @@ bool xml_reader::TryToParseDocumentAttributes()
 
 	RemoveWS();
 
-	string Attributes[]
+	const size_t AttributeCount = 3;
+	const string Attributes[]
 	{
 		"version",
 		"encoding",
@@ -265,11 +271,11 @@ bool xml_reader::TryToParseDocumentAttributes()
 	};
 
 	bool ParseFailed = false;
-	size_t AttributeCount = 3;
 
 	for(size_t Index = 0; Index < AttributeCount; Index++)
 	{
-		if(!TryToParseAttribute(Attributes[Index].c_str(), Attributes[Index].size()))
+		if(!TryToParseAttribute(Attributes[Index].c_str(), 
+								Attributes[Index].size()))
 		{
 			// error
 			ParseFailed = true;
@@ -283,22 +289,25 @@ bool xml_reader::TryToParseDocumentAttributes()
 			ParseFailed = true;
 			break;
 		}
+		
+		PopAttributeValueStack();
 
 		RemoveWS();
 	}
 
 	if(!ParseFailed)
 	{
-		string LastLexeme = "?>";
-		size_t LastLexemeByteCount = 2;
-
-		if(!BytesMatch(LastLexeme.c_str(), LastLexemeByteCount))
+		if(!BytesMatch(EndTag.c_str(), EndTag.size()))
 		{
-			// log & report error
+			// log & report 
+			// error
 			return false;
 		}
 
+		PopNewMarkup();
+
 		RemoveWS();
+
 		return true;
 	}
 
@@ -309,7 +318,18 @@ void xml_reader::PopAttributeValueStack()
 {
 	if(!AttributeValueStack.empty())
 	{
+		xml_markup_attribute* Attribute = AttributeValueStack.back();
 		AttributeValueStack.pop_back();
+
+		// Attribute
+	}
+}
+
+void xml_reader::PopMarkupNodeStack()
+{
+	if(!MarkupNodeStack.empty())
+	{
+		MarkupNodeStack.pop_back();
 	}
 }
 
@@ -332,12 +352,12 @@ bool xml_reader::Read()
 	{
 		if(!Doc->ParsedDeclaration())
 		{
-			if(TryToParseDocumentAttributes())
+			if(TryToParseDocumentDeclarationMarkup())
 			{
 				// log & recorrd document 
 				// parsing activity
 
-				// xml_markup::Create()
+				PopMarkupNodeStack();
 			}
 		}
 	}

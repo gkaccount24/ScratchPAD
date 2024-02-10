@@ -23,8 +23,7 @@ enum class xml_builtin_markup_tags
 
 struct xml_markup_attribute
 {
-	string ExpectedBytes;
-	string ActualBytes;
+	string Name;
 	string Value;
 };
 
@@ -39,14 +38,9 @@ struct xml_markup_attribute
 
 struct xml_markup
 {
-	// tag type id
-	xml_builtin_markup_tags Type;
-
 	// starting tag lexeme
-	string FirstLexeme;
-	string LastLexeme;
-
-	bool DocumentDeclaration;
+	string StartTag;
+	string EndTag;
 
 	// parsed/preconfigured markup attributes
 	vector<xml_markup_attribute*> Attributes;
@@ -54,8 +48,7 @@ struct xml_markup
 	// child markup
 	vector<xml_markup*> Children;
 
-	xml_markup(xml_builtin_markup_tags TagType, 
-			   const char* StartLexeme, 
+	xml_markup(const char* StartLexeme, 
 			   const char* EndLexeme);
 
 	~xml_markup();
@@ -64,9 +57,8 @@ struct xml_markup
 	*** STATIC XML MARKUP METHODS
 	**/
 
-	static xml_markup* Create(xml_builtin_markup_tags TagType, 
-							  const char* StartLexeme,
-							  const char* EndLexeme);
+	static xml_markup* Create(const char* FirstLexeme, 
+							  const char* LastLexeme);
 };
 
 /***

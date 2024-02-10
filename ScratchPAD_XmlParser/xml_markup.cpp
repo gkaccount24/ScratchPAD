@@ -6,33 +6,26 @@
 *****
 *****/
 
-
-#define MarkupTagTypeIndex(MarkupTag)((int)MarkupTag)
-#define MAX_XML_TAG_ATTRIBUTE_COUNT 128
-
 /***
 *** XML MARKUP 
 *** STATIC METHODS
 **/
 
-static xml_markup* Create(xml_builtin_markup_tags TagType,
-						  const char* StartLexeme,
-						  const char* EndLexeme)
+xml_markup* xml_markup::Create(const char* StartTag,
+							   const char* EndTag)
 {
-	return new xml_markup(TagType, StartLexeme, EndLexeme);
+	return new xml_markup(StartTag, EndTag);
 }
 
 /***
 *** XML MARKUP CONSTRUCTORS
 **/
 
-xml_markup::xml_markup(xml_builtin_markup_tags MarkupTagType,
-					   const char* MarkupFirstLexeme,
-					   const char* MarkupLastLexeme)
+xml_markup::xml_markup(const char* MarkupStartTag,
+					   const char* MarkupEndTag)
 {
-	Type = MarkupTagType;
-	FirstLexeme = MarkupFirstLexeme;
-	LastLexeme = MarkupLastLexeme;
+	StartTag = MarkupStartTag;
+	EndTag = MarkupEndTag;
 }
 
 xml_markup::~xml_markup()
