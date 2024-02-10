@@ -12,18 +12,22 @@
 */
 
 /**
-** NOTE REGARDING HOW THIS WORKS
-** MY IDEA IS THIS: 
-** SelectedByte and SelectedByteMirror will always point to the same memory locations
-** EXCEPT when we do a lookahead, in which case SelectedByteMirror will advance past
-** the ACTUAL SelectedByte, ANY LOOKAHEAD OPERATION after its complete, should rewind
-** the Mirror.
-* 
-* NOTE TO SELF:
-* BY DEFAULT EVERY LOOKAHEAD OPERATION WILL LEAVE THE SelectedByteMirror in
-* AN ADVANCED POSITION, meaning SelectedByte will hold a memory address to the memory 
-* selected before the look ahead, then when we call Advance(), we advance the SelectedByte to the mirror
+*** XML_TOKENS
 */
+
+enum class xml_tokens
+{
+	DocumentDeclaration,
+	Comment,
+
+	GenericTag, 
+
+	AttributeName,
+	AttributeValue,
+
+	Equals,
+	String
+};
 
 xml_reader::xml_reader(xml_document* XMLDoc)
 {
@@ -119,27 +123,19 @@ bool xml_reader::IsWS()
 	return WS;
 }
 
-void xml_reader::ConsumeWS()
-{
-	while(!EndOfBuffer && IsWS())
-	{
-		if(Peeking)
-		{
-			PeekNext();
-		}
-		else
-		{
-			Advance();
-		}
-	}
-}
-
-void xml_reader::Consume()
+void xml_reader::Sync()
 {
 	BytesAvailable = BufferEnd - SelectedByteMirror;
 	BufferPos = BufferSize - BytesAvailable;
 	SelectedByte = SelectedByteMirror;
 
+	while(SelectedByte != BufferEnd && IsWS())
+	{
+		SelectedByte++;
+		SelectedByteMirror++;
+		BufferPos++;
+		BytesAvailable--;
+	}
 }
 
 void xml_reader::PeekNext(size_t ByteCount)
@@ -189,20 +185,33 @@ bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 		return false;
 	}
 
-	const char*& SelectedByteReference = Peeking ? SelectedByteMirror : SelectedByte;
-
 	bool Equal = true;
 
 	for(size_t CharIndex = 0; CharIndex < ByteCount; CharIndex++)
 	{
-		if(SelectedByteReference && Extract(SelectedByteReference) != SrcBytes[CharIndex])
+		if(SelectedByteMirror && Extract(SelectedByteMirror) != SrcBytes[CharIndex])
 		{
 			// we have a problem
 			Equal = false;
 			break;
 		}
 
-		SelectedByteReference++;
+		SelectedByteMirror++;
+	}
+
+	if(Equal && IsWS())
+	{
+		SelectedByte = SelectedByteMirror;
+		BufferPos += ByteCount;
+		BytesAvailable -= ByteCount;
+
+		while(SelectedByte != BufferEnd && IsWS())
+		{
+			SelectedByte++;
+			SelectedByteMirror++;
+			BufferPos++;
+			BytesAvailable--;
+		}
 	}
 
 	return Equal;
@@ -242,16 +251,12 @@ bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount)
 	if(BytesMatch(Lexeme, ByteCount))
 	{
 		// matched attribute lexeme
-		Consume();
+		Sync();
 
 		if(BytesMatch("=", 1))
 		{
-			// matched attribute assignment
-			Consume();
-
 			if(TryToParseAttributeValue())
 			{
-				
 				return true;
 			}
 		}
@@ -270,24 +275,21 @@ bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount)
 
 bool xml_reader::TryToParseDocumentAttributes()
 {
-	Peeking = true;
-
 	xml_markup XMLDeclarationMarkup(BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", "?>");
 
 	if(BytesMatch(XMLDeclarationMarkup.FirstLexeme.c_str(),
 				  XMLDeclarationMarkup.FirstLexeme.size()))
 	{
-		Consume();
-
 		size_t AttributeCount = XMLDeclarationMarkup.Attributes.size();
 
 		for(size_t Index = 0; Index < AttributeCount; Index++)
 		{
-			const char* ExpectedBytes = XMLDeclarationMarkup.Attributes[Index].ExpectedBytes.c_str();
-			size_t ByteCount = XMLDeclarationMarkup.Attributes[Index].ExpectedBytes.size();
+			const char* ExpectedBytes = XMLDeclarationMarkup.Attributes[Index]->ExpectedBytes.c_str();
+			size_t ByteCount = XMLDeclarationMarkup.Attributes[Index]->ExpectedBytes.size();
 
 			if(TryToParseAttribute(ExpectedBytes, ByteCount))
 			{
+				XMLDeclarationMarkup.Attributes.push_back(new xml_markup_attribute { ExpectedBytes, });
 
 			}
 		}

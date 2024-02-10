@@ -54,7 +54,6 @@ struct xml_reader
 	size_t BytesAvailable;
 
 	// Reading State flags
-	bool Peeking;
 	bool EndOfBuffer;
 
 	inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
@@ -66,17 +65,14 @@ struct xml_reader
 	~xml_reader();
 
 	bool Read();
-
+	
 	bool IsWS();
-	void ConsumeWS();
-	void Consume();
-
+	void Sync();
 	void PeekNext(size_t ByteCount = 1);
 	void Advance(size_t ByteCount = 1);
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
 	bool TryToParseDocumentAttributes();
-
 	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
 	bool TryToParseAttributeValue();
 

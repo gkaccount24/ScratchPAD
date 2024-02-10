@@ -10,6 +10,22 @@
 #define MarkupTagTypeIndex(MarkupTag)((int)MarkupTag)
 #define MAX_XML_TAG_ATTRIBUTE_COUNT 128
 
+/***
+*** XML MARKUP 
+*** STATIC METHODS
+**/
+
+static xml_markup* Create(xml_builtin_markup_tags TagType,
+						  const char* StartLexeme,
+						  const char* EndLexeme)
+{
+	return new xml_markup(TagType, StartLexeme, EndLexeme);
+}
+
+/***
+*** XML MARKUP CONSTRUCTORS
+**/
+
 xml_markup::xml_markup(xml_builtin_markup_tags MarkupTagType,
 					   const char* MarkupFirstLexeme,
 					   const char* MarkupLastLexeme)

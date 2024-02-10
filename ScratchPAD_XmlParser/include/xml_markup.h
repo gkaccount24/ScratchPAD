@@ -47,16 +47,24 @@ struct xml_markup
 	string LastLexeme;
 
 	// parsed/preconfigured markup attributes
-	vector<xml_markup_attribute> Attributes;
+	vector<xml_markup_attribute*> Attributes;
 
 	// child markup
 	vector<xml_markup*> Children;
 
-	xml_markup(xml_builtin_markup_tags MarkupTagType, 
+	xml_markup(xml_builtin_markup_tags TagType, 
 			   const char* StartLexeme, 
 			   const char* EndLexeme);
 
 	~xml_markup();
+
+	/***
+	*** STATIC XML MARKUP METHODS
+	**/
+
+	static xml_markup* Create(xml_builtin_markup_tags TagType, 
+							  const char* StartLexeme,
+							  const char* EndLexeme);
 };
 
 /***
