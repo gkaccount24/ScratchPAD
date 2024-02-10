@@ -49,7 +49,6 @@ xml_reader::xml_reader(xml_document* XMLDoc)
 		SelectedByteMirror = SelectedByte;
 
 		EndOfBuffer = false;
-		Peeking = false;
 
 		if(SelectedByte == BufferEnd)
 		{
@@ -59,7 +58,7 @@ xml_reader::xml_reader(xml_document* XMLDoc)
 		// Current Reading Mode
 		Mode = XMLReaderModeEnum(Nothing);
 
-		// set attribute stack count
+		AttributeValueStack.resize(128);
 		AttributeValueCount = 0;
 
 		if(!Read())
@@ -97,84 +96,33 @@ xml_reader::~xml_reader()
 	BytesAvailable = 0;
 
 	// Reading State flags
-	Peeking = false;
 	EndOfBuffer = true;
+
+	AttributeValueStack.clear();
+	AttributeValueStack.shrink_to_fit();
+	AttributeValueCount = 0;
 }
 
 bool xml_reader::IsWS()
 {
 	bool WS = false;
 
-	if(!Peeking)
-	{
-		WS = Extract(SelectedByte) == ' ' ||
-			 Extract(SelectedByte) == '\t' ||
-			 Extract(SelectedByte) == '\r' ||
-			 Extract(SelectedByte) == '\n';
-	}
-	else
-	{
-		WS = Extract(SelectedByteMirror) == ' ' ||
-			 Extract(SelectedByteMirror) == '\t' ||
-		     Extract(SelectedByteMirror) == '\r' ||
-			 Extract(SelectedByteMirror) == '\n';
-	}
+	WS = Extract(SelectedByteMirror) == ' ' ||
+		 Extract(SelectedByteMirror) == '\t' ||
+		 Extract(SelectedByteMirror) == '\r' ||
+		 Extract(SelectedByteMirror) == '\n';
 
 	return WS;
 }
 
-void xml_reader::Sync()
+void xml_reader::RemoveWS()
 {
-	BytesAvailable = BufferEnd - SelectedByteMirror;
-	BufferPos = BufferSize - BytesAvailable;
-	SelectedByte = SelectedByteMirror;
-
-	while(SelectedByte != BufferEnd && IsWS())
+	while(SelectedByteMirror != BufferEnd && IsWS())
 	{
 		SelectedByte++;
 		SelectedByteMirror++;
 		BufferPos++;
 		BytesAvailable--;
-	}
-}
-
-void xml_reader::PeekNext(size_t ByteCount)
-{
-	if(BytesAvailable > ByteCount)
-	{
-		SelectedByteMirror += ByteCount;
-
-		BufferPos += ByteCount;
-		BytesAvailable -= ByteCount;
-	}
-	else
-	{
-		SelectedByteMirror += BytesAvailable;
-
-		BufferPos += BytesAvailable;
-		BytesAvailable = 0;
-		EndOfBuffer = true;
-	}
-}
-
-void xml_reader::Advance(size_t ByteCount)
-{
-	if(BytesAvailable > ByteCount)
-	{
-		SelectedByte += ByteCount;
-		SelectedByteMirror += ByteCount;
-
-		BufferPos += ByteCount;
-		BytesAvailable -= ByteCount;
-	}
-	else
-	{
-		SelectedByte += BytesAvailable;
-		SelectedByteMirror += BytesAvailable;
-
-		BufferPos += BytesAvailable;
-		BytesAvailable = 0;
-		EndOfBuffer = true;
 	}
 }
 
@@ -199,48 +147,57 @@ bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 		SelectedByteMirror++;
 	}
 
-	if(Equal && IsWS())
+	if(Equal)
 	{
 		SelectedByte = SelectedByteMirror;
 		BufferPos += ByteCount;
 		BytesAvailable -= ByteCount;
 
-		while(SelectedByte != BufferEnd && IsWS())
-		{
-			SelectedByte++;
-			SelectedByteMirror++;
-			BufferPos++;
-			BytesAvailable--;
-		}
+		return true;
 	}
-
-	return Equal;
+	else
+	{
+		// error, lexeme immediatelly
+		// following our tag has to be ws
+		return false;
+	}
 }
 
 bool xml_reader::TryToParseAttributeValue()
 {
 	bool Parsed = false;
+	size_t TempByteCount = 0;
 
-	if(BytesMatch("\"", 1))
-	{
-		const char*& SelectedByteReference = Peeking ? SelectedByteMirror : SelectedByte;
-
-		while(SelectedByteReference != BufferEnd)
+	if(Extract(SelectedByteMirror) == '\"')
+	{		
+		SelectedByteMirror++;
+		TempByteCount++;
+		
+		while(SelectedByteMirror != BufferEnd)
 		{
-			if(BytesMatch("\"", 1))
+			if(Extract(SelectedByteMirror) == '\"')
 			{
+				SelectedByteMirror++;
+				TempByteCount++;
+
 				Parsed = true;
 				break;
 			}
 
-			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteReference));
-			SelectedByteReference++;
-		}
-	}
+			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteMirror));
 
-	if(Parsed)
-	{
-		AttributeValueCount++;
+			SelectedByteMirror++;
+			TempByteCount++;
+		}
+
+		if(Parsed)
+		{
+			AttributeValueCount++;
+
+			SelectedByte = SelectedByteMirror;
+			BufferPos += TempByteCount;
+			BytesAvailable -= TempByteCount;
+		}
 	}
 
 	return Parsed;
@@ -250,13 +207,18 @@ bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount)
 {
 	if(BytesMatch(Lexeme, ByteCount))
 	{
-		// matched attribute lexeme
-		Sync();
+		RemoveWS();
 
-		if(BytesMatch("=", 1))
+		if(Extract(SelectedByteMirror) == '=')
 		{
+			SelectedByteMirror++;
+
+			RemoveWS();
+
 			if(TryToParseAttributeValue())
 			{
+
+				PopAttributeValueStack();
 				return true;
 			}
 		}
@@ -275,56 +237,79 @@ bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount)
 
 bool xml_reader::TryToParseDocumentAttributes()
 {
-	xml_markup XMLDeclarationMarkup(BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", "?>");
+	string FirstLexeme = "<?xml";
 
-	if(BytesMatch(XMLDeclarationMarkup.FirstLexeme.c_str(),
-				  XMLDeclarationMarkup.FirstLexeme.size()))
+	if(!BytesMatch(FirstLexeme.c_str(), FirstLexeme.size()))
 	{
-		size_t AttributeCount = XMLDeclarationMarkup.Attributes.size();
-
-		for(size_t Index = 0; Index < AttributeCount; Index++)
-		{
-			const char* ExpectedBytes = XMLDeclarationMarkup.Attributes[Index]->ExpectedBytes.c_str();
-			size_t ByteCount = XMLDeclarationMarkup.Attributes[Index]->ExpectedBytes.size();
-
-			if(TryToParseAttribute(ExpectedBytes, ByteCount))
-			{
-				XMLDeclarationMarkup.Attributes.push_back(new xml_markup_attribute { ExpectedBytes, });
-
-			}
-		}
-
-		// matched declaration lexeme
-		if(BytesMatch(XMLDeclarationMarkup.LastLexeme.c_str(), 
-					  XMLDeclarationMarkup.LastLexeme.size()))
-		{
-
-			return true;
-		}
-		else
-		{
-			// log error & 
-			// report error
-		}
-	}
-	else
-	{
-		// log error & 
-		// report error
-
+		// lexing error encountered
+		// report error & return;
 		return false;
 	}
+
+	// expect ws following
+	// opening tag
+	if(!IsWS())
+	{
+		// lexing error encountered
+		// report error & return;
+		return false;
+	}
+
+	RemoveWS();
+
+	string Attributes[]
+	{
+		"version",
+		"encoding",
+		"standalone"
+	};
+
+	bool ParseFailed = false;
+	size_t AttributeCount = 3;
+
+	for(size_t Index = 0; Index < AttributeCount; Index++)
+	{
+		if(!TryToParseAttribute(Attributes[Index].c_str(), Attributes[Index].size()))
+		{
+			// error
+			ParseFailed = true;
+			break;
+		}
+
+		// check for required space
+		if(!IsWS() && Attributes[Index] != "standalone")
+		{
+			// error
+			ParseFailed = true;
+			break;
+		}
+
+		RemoveWS();
+	}
+
+	if(!ParseFailed)
+	{
+		string LastLexeme = "?>";
+		size_t LastLexemeByteCount = 2;
+
+		if(!BytesMatch(LastLexeme.c_str(), LastLexemeByteCount))
+		{
+			// log & report error
+			return false;
+		}
+
+		RemoveWS();
+		return true;
+	}
+
+	return false;
 }
-
-
 
 void xml_reader::PopAttributeValueStack()
 {
-	if(AttributeValueCount > 0)
+	if(!AttributeValueStack.empty())
 	{
-		AttributeValueStack[AttributeValueCount - 1].clear();
-
-		AttributeValueCount--;
+		AttributeValueStack.pop_back();
 	}
 }
 

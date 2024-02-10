@@ -56,10 +56,11 @@ struct xml_reader
 	// Reading State flags
 	bool EndOfBuffer;
 
-	inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
+	// inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
+	// size_t AttributeValueCount;
 
-	string AttributeValueStack[ATTRIBUTE_VALUE_STACK_COUNT];
-	size_t AttributeValueCount;
+	vector<string> AttributeValueStack;
+	size_t		   AttributeValueCount;
 
 	xml_reader(xml_document* XMLDoc);
 	~xml_reader();
@@ -67,9 +68,7 @@ struct xml_reader
 	bool Read();
 	
 	bool IsWS();
-	void Sync();
-	void PeekNext(size_t ByteCount = 1);
-	void Advance(size_t ByteCount = 1);
+	void RemoveWS();
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
 	bool TryToParseDocumentAttributes();

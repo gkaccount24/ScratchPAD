@@ -101,7 +101,7 @@ void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, str
 	}
 }
 
-bool xml_document::ParsedRequiredAttributes()
+bool xml_document::ParsedDeclaration()
 {
 	return !Attributes[XMLDocumentAttributeEnumIndex(Version)].empty();
 }

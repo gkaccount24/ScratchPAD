@@ -79,16 +79,7 @@ inline static const xml_markup* GetBuiltinMarkupTags()
 		xml_markup_attribute  { "standalone" },
 	};
 
-	static xml_markup Markup[] 
-	{
-		xml_markup(BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", "?>"),
-		xml_markup(BuiltinMarkupTagTypeEnum(CommentTag), "<!--", "-->"),
-		xml_markup(BuiltinMarkupTagTypeEnum(ProcessingInstructionTag), "<?", "?>"),
-		xml_markup(BuiltinMarkupTagTypeEnum(CDataSectionTag), "<![DATA[", "]]>"),
-		xml_markup(BuiltinMarkupTagTypeEnum(CharDataTag), "<", ">")
-	};
-
-	return &Markup[0];
+	return nullptr;
 }
 
 #endif
