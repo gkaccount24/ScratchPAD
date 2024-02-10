@@ -1,7 +1,8 @@
 #ifndef XML_READER_H
 #define XML_READER_H
 
-#include <win32_io.h>
+#include "xml_document.h"
+#include "xml_markup.h"
 
 #include <iostream>
 #include <string>
@@ -9,119 +10,11 @@
 using std::cout;
 using std::flush;
 using std::endl;
-
 using std::string;
 
-#define XmlDocBuf(Doc)((Doc)->GetBufferRef())
-
-#define Extract(SelectedByte)(*(SelectedByte))
-#define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
-
-enum class xml_doc_decl_attribute
-{
-	DECL_ATTRIBUTE_VERSION		  = 0,
-	DECL_ATTRIBUTE_ENCODING       = 1,
-	DECL_ATTRIBUTE_STANDALONEDECL = 2
-};
-
-class xml_doc 
-{
-	friend class xml_reader;
-
-public:
-	 xml_doc() = default;
-	~xml_doc() = default;
-
-private:
-	xml_doc(const xml_doc& Rhs) = delete;
-	xml_doc(xml_doc&& Rhs) = delete;
-
-public:
-	bool Open(const char* Path);
-	bool IsOpen() const;
-	void Close();
-
-public:
-	inline string& GetBufferRef() const { return FileHandle->_Buffer; }
-
-	void SetDocDeclAttribute(xml_doc_decl_attribute AttributeEnum, string Value);
-	
-	inline bool ParsedEncoding() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_ENCODING)].empty(); }
-	inline bool ParsedVersion() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_VERSION)].empty(); }
-	inline bool ParsedStandaloneDecl() const { return !DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_STANDALONEDECL)].empty(); }
-
-public:
-	static xml_doc* CreateAndOpen(const char* Path);
-	static xml_doc* Create(const char* Path);
-
-private:
-	file* FileHandle;
-
-	// xml doc state members
-	string DeclAttributes[3];
-};
-
-#define MarkupTagTypeIndex(MarkupTag) (static_cast<int>((MarkupTag)))
-
-enum class xml_markup_tag_type
-{
-	Start = 0,
-	End = 1
-};
-
-#define MAX_XML_TAG_ATTRIBUTE_COUNT 128
-#define BUILTIN_MARKUP_TAG_COUNT 5
-
-#define BuiltinMarkupTagTypeEnum(MarkupTag)(xml_builtin_markup_tags::MarkupTag)
-#define BuiltinMarkupTagIndex(MarkupTag)(static_cast<int>(MarkupTag))
-#define BuiltinMarkupTag(MarkupTag)(xml_reader::GetBuiltinMarkupTag(BuiltinMarkupTagTypeEnum(MarkupTag)))
-
-enum class xml_builtin_markup_tag_attributes
-{
-	XMLVersion = 0,
-	DocEncoding	= 1,
-	StandaloneDecl = 2
-};
-
-#define BuiltinMarkupTagAttributeEnum(Attribute)(xml_builtin_markup_tag_attributes::Attribute)
-#define BuiltinMarkupTagAttributeIndex(Attribute) static_cast<int>(BuiltinMarkupTagAttributeEnum(Attribute))
-#define BuiltinMarkupTagAttribute(MarkupTag, Attribute)(BuiltinMarkupTag(MarkupTag)->Attributes[BuiltinMarkupTagAttributeIndex(Attribute)])
-
-struct xml_builtin_markup_tag_attribute
-{
-	xml_builtin_markup_tag_attributes AttributeName;
-	const char* ExpectedBytes;
-	size_t ByteCount;
-	string Value;
-	bool Required;
-};
-
-enum class xml_builtin_markup_tags
-{
-	PrologAndTypeDeclTag = 0,
-	CommentTag = 1,
-	ProcessingInstructionTag = 2,
-	CDataSectionTag = 3,
-	CharDataTag = 4
-};
-
-struct xml_builtin_markup_tag 
-{
-	xml_builtin_markup_tags TagType;
-
-	const char* StartText;
-	size_t StartTextLength;
-
-	const char* EndText;
-	size_t EndTextLength;
-
-	xml_builtin_markup_tag_attribute* Attributes;
-	size_t AttributeCount;
-	bool AttributesExpectedInOrder;
-};
-
-#define XMLReaderMode(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
-#define XMLReaderModeIndex(ReaderModeEnum)(static_cast<int>(XMLReaderMode(ReaderModeEnum)))
+/***
+**** VARIOUS XML READER MODES
+***/
 
 enum class xml_reader_mode
 {
@@ -129,61 +22,20 @@ enum class xml_reader_mode
 	ReadingCharDataTag = 1,
 	ReadingProcessingInstructionTag = 2,
 	ReadingPrologAndTypeDeclTag = 3,
-	ReadingCDataSectionTag = 4
+	ReadingCDataSectionTag = 4,
+	Nothing = 5,
+	Count = 6
 };
 
-class xml_reader
+#define XMLReaderModeEnum(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
+#define XMLReaderModeIndex(ReaderModeEnum)((int)XMLReaderModeEnum(ReaderModeEnum))
+#define XMLReaderModeEnumFromIndex(ReaderModeEnumIndex)((xml_reader_mode)ReaderModeEnumIndex)
+
+struct xml_reader
 {
-
-public:
-	 xml_reader() = default;
-	~xml_reader() = default;
-
-private:
-	xml_reader(const xml_reader& Rhs) = delete;
-	xml_reader(xml_reader&& Rhs) = delete;
-
-public:
-	bool Read(xml_doc* Doc);
-
-private:
-	bool CompareBytes(const char* SrcBytes, size_t ByteCount, bool RewindMirror = false);
-	void SkipWS(bool LookAhead = false);
-	void Advance(size_t ByteCount = 1, bool LookAhead = false);
-	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
-	void Rewind(size_t ByteCount = 1);
-	bool IsWhitespace(bool LookAhead);
-	void PopAttributeValueStack();
-
-private:
-	bool TryToParseAttributeValue(bool RewindMirror = false);
-
-public:
-	inline static const xml_builtin_markup_tag* GetBuiltinMarkupTags()
-	{
-		static xml_builtin_markup_tag_attribute XML_DECL_TAG_BUILTIN_ATTRIBUTES[]
-		{
-			xml_builtin_markup_tag_attribute  { BuiltinMarkupTagAttributeEnum(XMLVersion), "version", 7 },
-			xml_builtin_markup_tag_attribute  { BuiltinMarkupTagAttributeEnum(DocEncoding), "encoding", 8 },
-			xml_builtin_markup_tag_attribute  { BuiltinMarkupTagAttributeEnum(StandaloneDecl), "standalone", 10 },
-		};
-
-		static xml_builtin_markup_tag BUILTIN_MARKUP_TAGS[BUILTIN_MARKUP_TAG_COUNT] 
-		{
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", 5, "?>", 2, XML_DECL_TAG_BUILTIN_ATTRIBUTES, 3, false },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CommentTag), "<!--", 4, "-->", 3, 0, 0, false },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(ProcessingInstructionTag), "<?", 2, "?>", 2, 0, 0, false },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CDataSectionTag), "<![DATA[", 9, "]]>", 4, 0, 0, false },
-			xml_builtin_markup_tag { BuiltinMarkupTagTypeEnum(CharDataTag), "<", 1, ">", 1, 0, 0, false }
-		};
-
-		return &BUILTIN_MARKUP_TAGS[0];
-	}
-
-private:
 	// the current document were 
 	// suppose to be reading
-	xml_doc* Doc;
+	xml_document* Doc;
 
 	// Current Reading Mode
 	xml_reader_mode Mode;
@@ -207,10 +59,28 @@ private:
 	inline static constexpr int ATTRIBUTE_VALUE_STACK_COUNT = 64;
 
 	string AttributeValueStack[ATTRIBUTE_VALUE_STACK_COUNT];
-	size_t CurrentAttributeValueCount;
+	size_t AttributeValueCount;
 
+	xml_reader(xml_document* XMLDoc);
+	~xml_reader();
 
+	bool Read();
 
+	bool IsWhitespace(bool LookAhead);
+	void SkipWS(bool LookAhead = false);
+
+	void LookAhead(size_t ByteCount = 1, bool RewindMirror = false);
+	void Advance(size_t ByteCount = 1, bool LookAhead = false);
+	void Rewind(size_t ByteCount = 1);
+
+	bool CompareBytes(const char* SrcBytes, size_t ByteCount, bool RewindMirror = false);
+
+	bool TryToParseAttributeValue(bool RewindMirror = false);
+	void PopAttributeValueStack();
+
+private:
+	xml_reader(const xml_reader& Rhs) = delete;
+	xml_reader(xml_reader&& Rhs) = delete;
 
 };
 

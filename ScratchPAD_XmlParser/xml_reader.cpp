@@ -1,79 +1,11 @@
 #include "./include/xml_reader.h"
 
 /**
-*** XML_DOC
+*** INTERNAL HELPER MACROS
 */
 
-bool xml_doc::Open(const char* Path)
-{
-	bool OpenResult = false;
-
-	FileHandle = OpenForReading(Path);
-
-	if(FileHandle)
-	{
-		OpenResult = true;
-	}
-
-	return OpenResult;
-}
-
-bool xml_doc::IsOpen() const
-{
-	return FileHandle->_IsOpen;
-}
-
-void xml_doc::Close()
-{
-	CloseFile(FileHandle);
-	FileHandle = nullptr;
-}
-
-void xml_doc::SetDocDeclAttribute(xml_doc_decl_attribute AttributeEnum, string Value)
-{
-	if(AttributeEnum == xml_doc_decl_attribute::DECL_ATTRIBUTE_VERSION)
-	{
-		DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_VERSION)] = Value;
-	}
-	else if(AttributeEnum == xml_doc_decl_attribute::DECL_ATTRIBUTE_ENCODING)
-	{
-		DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_ENCODING)] = Value;
-	}
-	else if(AttributeEnum == xml_doc_decl_attribute::DECL_ATTRIBUTE_STANDALONEDECL)
-	{
-		DeclAttributes[static_cast<int>(xml_doc_decl_attribute::DECL_ATTRIBUTE_STANDALONEDECL)] = Value;
-	}
-}
-
-xml_doc* xml_doc::CreateAndOpen(const char* Path)
-{
-	xml_doc* Doc = new xml_doc();
-
-	if(!Doc)
-	{
-		return nullptr;
-	}
-
-	if(!Doc->Open(Path))
-	{
-		delete Doc;
-		Doc = nullptr;
-	}
-
-	return Doc;
-}
-
-xml_doc* xml_doc::Create(const char* Path)
-{
-	xml_doc* Doc = new xml_doc();
-
-	if(!Doc)
-	{
-		return nullptr;
-	}
-
-	return Doc;
-}
+#define Extract(SelectedByte)(*(SelectedByte))
+#define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
 /**
 *** XML_READER
@@ -92,6 +24,76 @@ xml_doc* xml_doc::Create(const char* Path)
 * AN ADVANCED POSITION, meaning SelectedByte will hold a memory address to the memory 
 * selected before the look ahead, then when we call Advance(), we advance the SelectedByte to the mirror
 */
+
+xml_reader::xml_reader(xml_document* XMLDoc)
+{
+	if(XMLDoc && XMLDoc->IsOpen())
+	{
+		Doc = XMLDoc;
+
+		BufferSize = XMLDocumentBuffer(Doc).size();
+		BufferPos = 0;
+
+		// Buffer Range
+		BufferBegin = XMLDocumentBuffer(Doc).data();
+		BufferEnd = XMLDocumentBuffer(Doc).data() + BufferSize;
+
+		BytesAvailable = BufferSize;
+
+		// Selected Byte
+		SelectedByte = BufferBegin;
+		SelectedByteMirror = SelectedByte;
+
+		EndOfBuffer = false;
+
+		if(SelectedByte == BufferEnd)
+		{
+			EndOfBuffer = true;
+		}
+
+		// Current Reading Mode
+		Mode = XMLReaderModeEnum(Nothing);
+
+		// set attribute stack count
+		AttributeValueCount = 0;
+
+		if(!Read())
+		{
+			// log
+
+		}
+	}
+}
+
+xml_reader::~xml_reader()
+{
+	if(Doc)
+	{
+		Doc->Close();
+
+		delete Doc;
+		Doc = nullptr;
+	}
+
+	// Current Reading Mode
+	Mode = XMLReaderModeEnum(Nothing);
+
+	// Buffer Range
+	BufferBegin = nullptr;
+	BufferEnd = nullptr;
+
+	// Selected Byte
+	SelectedByte = nullptr;
+	SelectedByteMirror = nullptr;
+
+	// Position and Buffer size
+	BufferPos = 0;
+	BufferSize = 0;
+	BytesAvailable = 0;
+
+	// Reading State flags
+	EndOfBuffer = true;
+}
 
 bool xml_reader::IsWhitespace(bool LookAhead)
 {
@@ -226,14 +228,14 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 				break;
 			}
 
-			AttributeValueStack[CurrentAttributeValueCount].push_back(Extract(SelectedByteMirror));
+			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteMirror));
 			SelectedByteMirror++;
 		}
 	}
 
 	if(Parsed)
 	{
-		CurrentAttributeValueCount++;
+		AttributeValueCount++;
 	}
 
 	if(RewindMirror)
@@ -246,247 +248,33 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 
 void xml_reader::PopAttributeValueStack()
 {
-	if(CurrentAttributeValueCount > 0)
+	if(AttributeValueCount > 0)
 	{
-		AttributeValueStack[CurrentAttributeValueCount - 1].clear();
+		AttributeValueStack[AttributeValueCount - 1].clear();
 
-		CurrentAttributeValueCount--;
+		AttributeValueCount--;
 	}
 }
 
-bool xml_reader::Read(xml_doc* NewDoc)
+// parsing markup: 
+// start-tags, 
+// end-tags, 
+// empty-element-tags, 
+// entity references, 
+// character references, 
+// comments, 
+// CDATA section delimiters
+// document type declarations
+// processing instructions, 
+// XML declarations,
+// text declarations
+
+bool xml_reader::Read()
 {
-	if(!NewDoc->IsOpen())
+	if(Doc && Doc->IsOpen())
 	{
-		return false;
+
 	}
 
-	Doc = NewDoc;
-
-	bool ReadResult = true;
-
-	BufferSize = XmlDocBuf(Doc).size();
-	BufferBegin = XmlDocBuf(Doc).data();
-	BufferEnd = XmlDocBuf(Doc).data() + BufferSize;
-
-	BytesAvailable = BufferSize;
-
-	SelectedByte = BufferBegin;
-	SelectedByteMirror = SelectedByte;
-	BufferPos = 0;
-	EndOfBuffer = false;
-
-	if(SelectedByte == BufferEnd)
-	{
-		EndOfBuffer = true;
-	}
-
-	while(!EndOfBuffer)
-	{
-		SkipWS();
-
-		switch(Extract(SelectedByte))
-		{
-			case '<':
-			{
-				// parsing markup: 
-				// start-tags, 
-				// end-tags, 
-				// empty-element-tags, 
-				// entity references, 
-				// character references, 
-				// comments, 
-				// CDATA section delimiters
-				// document type declarations
-				// processing instructions, 
-				// XML declarations,
-				// text declarations
-
-				bool ReadingUserTag = true;
-
-				const xml_builtin_markup_tag* MarkupTags = GetBuiltinMarkupTags();
-
-				for(size_t Index = 0; Index < BUILTIN_MARKUP_TAG_COUNT; Index++)
-				{
-					if(CompareBytes(MarkupTags[Index].StartText,
-									MarkupTags[Index].StartTextLength))
-					{
-						ReadingUserTag = false;
-
-						LookAhead(MarkupTags[Index].StartTextLength);
-						SkipWS(true);
-
-						for(size_t JIndex = 0; JIndex < MarkupTags[Index].AttributeCount; JIndex++)
-						{
-							xml_builtin_markup_tag_attribute Attribute = MarkupTags[Index].Attributes[JIndex];
-
-							if(CompareBytes(Attribute.ExpectedBytes, Attribute.ByteCount))
-							{
-								SkipWS(true);
-
-								if(!CompareBytes("=", 1))
-								{
-									// Success = false;
-									break;
-								}
-
-								SkipWS(true);
-
-								if(!TryToParseAttributeValue())
-								{
-									// Success = false;
-									break;
-								}
-								else
-								{
-									if(MarkupTags[Index].TagType == xml_builtin_markup_tags::PrologAndTypeDeclTag)
-									{
-										Doc->SetDocDeclAttribute(static_cast<xml_doc_decl_attribute>(JIndex), AttributeValueStack[CurrentAttributeValueCount - 1]);
-										LookAhead(Doc->DeclAttributes[JIndex].size() + 2);
-									}
-									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CommentTag)
-									{
-
-									}
-									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::ProcessingInstructionTag)
-									{
-
-									}
-									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CDataSectionTag)
-									{
-
-									}
-									else if(MarkupTags[Index].TagType == xml_builtin_markup_tags::CharDataTag)
-									{
-									}
-
-									PopAttributeValueStack();
-								}
-							}
-							else
-							{
-								if(MarkupTags[Index].AttributesExpectedInOrder)
-								{
-									//Success = false;
-									break;
-								}
-							}
-
-							SkipWS(true);
-						}
-
-						if(!CompareBytes(MarkupTags[Index].EndText,
-										 MarkupTags[Index].EndTextLength))
-						{
-							assert(0);
-							// missing end tag
-							// error out
-						}
-
-						LookAhead(MarkupTags[Index].EndTextLength);
-						SkipWS(true);
-					}
-					else
-					{
-						// this is an error
-						// return ErrorCode;
-						//	break;
-					}
-				}
-
-				if(ReadingUserTag)
-				{
-
-
-				}
-
-				break;
-			}
-			case '?':
-			{
-				if(Mode == XMLReaderMode(ReadingPrologAndTypeDeclTag))
-				{
-					// i dont think we have to do anything here but set a boolean
-					// on the xml doc
-				}
-
-				break;
-			}
-			case '>':
-			{
-				// the right angle bracket for compatibility reasons must be escaped
-				// or a character reference when it appears in a string
-
-				switch(Mode)
-				{
-					case XMLReaderMode(ReadingCommentTag):
-					{
-						cout << "Found CommentEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingCharDataTag):
-					{
-						cout << "Found CharDataEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingProcessingInstructionTag):
-					{
-						cout << "Found ProcessingInstructionEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingPrologAndTypeDeclTag):
-					{
-						cout << "Found PrologAndTypeDeclEndTag\n";
-
-						break;
-					}
-					case XMLReaderMode(ReadingCDataSectionTag):
-					{
-						cout << "Found CDataSectionEndTag\n";
-						break;
-					}
-				}
-
-				break;
-			}
-
-			default:
-			{
-				switch(Mode)
-				{
-					case XMLReaderMode(ReadingCommentTag):
-					{
-						cout << "Found CommentEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingCharDataTag):
-					{
-						cout << "Found CharDataEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingProcessingInstructionTag):
-					{
-						cout << "Found ProcessingInstructionEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingPrologAndTypeDeclTag):
-					{
-										cout << "Found PrologAndTypeDeclEndTag\n";
-						break;
-					}
-					case XMLReaderMode(ReadingCDataSectionTag):
-					{
-						cout << "Found CDataSectionEndTag\n";
-						break;
-					}
-				}
-
-				break;
-			}
-		}
-
-		EndOfBuffer = SelectedByte == BufferEnd;
-	}
-
-	return ReadResult;
+	return EndOfBuffer;
 }
