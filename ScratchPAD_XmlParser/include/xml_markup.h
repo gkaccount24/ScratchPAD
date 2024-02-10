@@ -27,6 +27,11 @@ struct xml_markup_attribute
 	string Value;
 };
 
+static xml_markup_attribute* CreateAttribute(const char* AttributeName)
+{
+	return new xml_markup_attribute { AttributeName };
+}
+
 #define MarkupAttributeEnum(Attribute)(xml_builtin_markup_tag_attributes::Attribute)
 #define MarkupAttributeIndex(Attribute)((int) MarkupAttributeEnum(Attribute))
 #define MarkupAttribute(MarkupTag, Attribute)(BuiltinMarkupTag(MarkupTag)->Attributes[BuiltinMarkupTagAttributeIndex(Attribute)])

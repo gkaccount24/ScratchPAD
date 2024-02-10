@@ -7,8 +7,9 @@
 #define Extract(SelectedByte)(*(SelectedByte))
 #define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
-#define MarkupDOM(NodeStack)(NodeStack[NodeStack.size() - 1])
+#define CurrentMarkupNode(NodeStack)(NodeStack.back())
 #define PushMarkupNode(NodeStack, Node)(NodeStack.push_back(Node))
+#define PushMarkupAttribute(AttributeStack, Attribute)(AttributeStack.push_back(Attribute))
 
 /**
 *** XML_READER
@@ -194,34 +195,44 @@ bool xml_reader::TryToParseAttributeValue()
 
 bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount) 
 {
-	if(BytesMatch(Lexeme, ByteCount))
+	if(!BytesMatch(Lexeme, ByteCount))
 	{
-		RemoveWS();
-
-		if(Extract(SelectedByteMirror) == '=')
-		{
-			SelectedByteMirror++;
-
-			RemoveWS();
-
-			if(TryToParseAttributeValue())
-			{
-
-				PopAttributeValueStack();
-				return true;
-			}
-		}
-		else
-		{
-			// error
-			// break;
-		}
-	}
-	else
-	{
-
+		// lexing error encountered
+		// report error & return;
 		return false;
 	}
+
+	RemoveWS();
+
+	if(Extract(SelectedByteMirror) != '=')
+	{
+		// lexing error encountered
+		// report error & return;
+		return false;
+	}
+	
+	SelectedByteMirror++;
+
+	RemoveWS();
+
+	if(!TryToParseAttributeValue())
+	{
+		return false;
+	}
+
+	PushNewMarkupAttribute();
+
+	return true;
+}
+
+void xml_reader::PushNewMarkupAttribute(const char* AttributeName)
+{
+	PushMarkupAttribute(MarkupAttributeStack, CreateAttribute(AttributeName));
+}
+
+void xml_reader::PopNewMarkupAttribute()
+{
+
 }
 
 void xml_reader::PushNewMarkup(const char* StartTag, const char* EndTag)
@@ -314,22 +325,22 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 	return false;
 }
 
-void xml_reader::PopAttributeValueStack()
-{
-	if(!AttributeValueStack.empty())
-	{
-		xml_markup_attribute* Attribute = AttributeValueStack.back();
-		AttributeValueStack.pop_back();
-
-		// Attribute
-	}
-}
-
 void xml_reader::PopMarkupNodeStack()
 {
 	if(!MarkupNodeStack.empty())
 	{
+		if(AttributeValueStack.empty())
+		{
+			xml_markup_attribute* Attribute = AttributeValueStack.back();
+			AttributeValueStack.pop_back();
+
+			CurrentMarkupNode(MarkupNodeStack)->Attributes.push_back(Attribute);
+		}
+
+		xml_markup* MarkupNode = MarkupNodeStack.back();
 		MarkupNodeStack.pop_back();
+
+		// save node
 	}
 }
 
