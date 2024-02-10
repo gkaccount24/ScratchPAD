@@ -103,12 +103,10 @@ void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, str
 
 bool xml_document::ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribute)
 {
-	return RootMarkupNode && 
-		   RootMarkupNode->StartTag == "<?xml" &&
-		   !Attributes[(int) Attribute].empty();
+	return false;
 }
 
 bool xml_document::ParsedDeclaration()
 {
-	return ParsedDeclarationAttribute(XMLDocumentAttributeEnum(Version));
+	return false;
 }

@@ -5,8 +5,10 @@
 #include "xml_markup.h"
 
 #include <iostream>
+#include <algorithm>
 #include <string>
 
+using std::reverse;
 using std::cout;
 using std::flush;
 using std::endl;
