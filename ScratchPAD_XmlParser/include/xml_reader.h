@@ -101,6 +101,7 @@ struct xml_reader
 
 	void PushNewMarkupAttribute(const char* AttributeName);
 	void PushNewMarkup(const char* StartTag, const char* EndTag);
+	void PushNewMarkup(const char* NameToken, size_t Length);
 	void PopNewMarkup();
 
 private:

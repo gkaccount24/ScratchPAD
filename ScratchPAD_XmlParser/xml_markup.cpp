@@ -17,6 +17,13 @@ xml_markup* xml_markup::Create(const char* StartTag,
 	return new xml_markup(StartTag, EndTag);
 }
 
+xml_markup* xml_markup::Create(const char* NameToken, size_t Length)
+{
+	string Name(NameToken, Length);
+
+	return new xml_markup(move(Name));
+}
+
 /***
 *** XML MARKUP CONSTRUCTORS
 **/
@@ -28,9 +35,9 @@ xml_markup::xml_markup(const char* MarkupStartTag,
 	EndTag = MarkupEndTag;
 }
 
-xml_markup::xml_markup(const char* NameToken)
+xml_markup::xml_markup(string&& NameToken)
 {
-	string Name(NameToken);
+	string Name(move(NameToken));
 
 	string TempStartTag;
 	string TempEndTag;
@@ -39,7 +46,7 @@ xml_markup::xml_markup(const char* NameToken)
 
 	if(!Name.empty())
 	{
-		TempStartTag.append(NameToken);
+		TempStartTag.append(Name);
 	}
 
 	TempStartTag.append(">");
@@ -48,7 +55,7 @@ xml_markup::xml_markup(const char* NameToken)
 
 	if(!Name.empty())
 	{
-		TempEndTag.append(NameToken);
+		TempEndTag.append(Name);
 	}
 
 	TempEndTag.append(">");

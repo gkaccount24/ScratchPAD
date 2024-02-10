@@ -246,6 +246,11 @@ void xml_reader::PushNewMarkup(const char* StartTag, const char* EndTag)
 	PushMarkupNode(MarkupNodeStack, xml_markup::Create(StartTag, EndTag));
 }
 
+void xml_reader::PushNewMarkup(const char* NameToken, size_t Length)
+{
+	PushMarkupNode(MarkupNodeStack, xml_markup::Create(NameToken, Length));
+}
+
 void xml_reader::PopNewMarkup()
 {
 	xml_markup* MarkupNode = MarkupNodeStack.back();
@@ -506,6 +511,15 @@ bool xml_reader::Read()
 						// log and report error
 						Error = true;
 					}
+
+					// get last name token
+					if(!NameTokenStack.empty())
+					{
+						PushNewMarkup(NameTokenStack.back()->Name.c_str(), 
+									  NameTokenStack.back()->Name.size());
+					}
+
+					RemoveWS();
 
 					break;
 				}
