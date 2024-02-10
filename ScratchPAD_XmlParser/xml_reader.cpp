@@ -107,8 +107,11 @@ bool xml_reader::IsWS()
 
 void xml_reader::RemoveWS()
 {
+	WSSkipped = 0;
+
 	while(SelectedByteMirror != BufferEnd && IsWS())
 	{
+		WSSkipped++;
 		SelectedByte++;
 		SelectedByteMirror++;
 		BufferPos++;
@@ -238,11 +241,6 @@ void xml_reader::PushNewMarkupAttribute(const char* AttributeName)
 	PushMarkupAttribute(MarkupAttributeStack, CreateAttribute(AttributeName));
 }
 
-void xml_reader::PopNewMarkupAttribute()
-{
-
-}
-
 void xml_reader::PushNewMarkup(const char* StartTag, const char* EndTag)
 {
 	PushMarkupNode(MarkupNodeStack, xml_markup::Create(StartTag, EndTag));
@@ -356,6 +354,7 @@ void xml_reader::PopMarkupNodeStack()
 		CurrentMarkupNode(MarkupNodeStack)->Attributes.push_back(Attribute);
 	}
 
+
 	xml_markup* MarkupNode = MarkupNodeStack.back();
 	MarkupNodeStack.pop_back();
 
@@ -369,18 +368,115 @@ void xml_reader::PopMarkupNodeStack()
 	}
 }
 
-// parsing markup: 
-// start-tags, 
-// end-tags, 
-// empty-element-tags, 
-// entity references, 
-// character references, 
-// comments, 
-// CDATA section delimiters
-// document type declarations
-// processing instructions, 
-// XML declarations,
-// text declarations
+bool xml_reader::TryToParseNameToken()
+{
+	size_t NameTokenByteCount = 0;
+	size_t NameTokenTotalByteCount = 0;
+
+	if(Extract(SelectedByteMirror) == '<')
+	{
+		NameTokenTotalByteCount++;
+		SelectedByteMirror++;
+
+		bool Parsed = false;
+
+		while(SelectedByteMirror != BufferEnd)
+		{
+			if(Extract(SelectedByteMirror) == '>')
+			{
+				NameTokenTotalByteCount++;
+				SelectedByteMirror++;
+				Parsed = true;
+
+				break;
+			}
+
+			SelectedByteMirror++;
+			NameTokenByteCount++;
+			NameTokenTotalByteCount++;
+		}
+
+		if(Parsed)
+		{
+			SelectedByte = SelectedByteMirror;
+			BufferPos += NameTokenTotalByteCount;
+			BytesAvailable -= NameTokenTotalByteCount;
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool xml_reader::TryToParseEndTag()
+{
+
+	return true;
+}
+
+bool xml_reader::TryToParseStartTag()
+{
+	size_t NameTokenTotalByteCount = 0;
+
+	if(Extract(SelectedByteMirror) != '<')
+	{
+		// report & log error	
+		// exit method
+		return false;
+	}
+
+	NameTokenTotalByteCount++;
+	SelectedByteMirror++;
+
+	RemoveWS();
+
+	NameTokenTotalByteCount += WSSkipped;
+	SelectedByteMirror += WSSkipped;
+
+	size_t NameTokenByteCount = 0;
+	const char* NameToken = SelectedByteMirror;
+
+	bool Parsed = false;
+
+	while(SelectedByteMirror != BufferEnd)
+	{
+		if(Extract(SelectedByteMirror) == '>')
+		{
+			NameTokenTotalByteCount++;
+			SelectedByteMirror++;
+			Parsed = true;
+
+			break;
+		}
+
+		if(NameTokenByteCount > 0 && IsWS())
+		{
+			// done parsing name token
+			SelectedByteMirror++;
+			NameTokenTotalByteCount++;
+		}
+		else
+		{
+			SelectedByteMirror++;
+			NameTokenByteCount++;
+			NameTokenTotalByteCount++;
+		}
+	}
+
+	if(Parsed)
+	{
+		NameTokenStack.push_back(CreateNameToken(NameToken, NameTokenByteCount));
+
+		SelectedByte = SelectedByteMirror;
+		BufferPos += NameTokenTotalByteCount;
+		BytesAvailable -= NameTokenTotalByteCount;
+
+		return true;
+	}
+
+	return false;
+}
 
 bool xml_reader::Read()
 {
@@ -394,6 +490,35 @@ bool xml_reader::Read()
 				// parsing activity
 
 				PopMarkupNodeStack();
+			}
+		}
+
+		bool Error = false;
+
+		while(SelectedByte != BufferEnd && !Error)
+		{
+			switch(Extract(SelectedByte))
+			{
+				case '<':
+				{
+					if(!TryToParseStartTag())
+					{
+						// log and report error
+						Error = true;
+					}
+
+					break;
+				}
+				case '>':
+				{
+					if(!TryToParseEndTag())
+					{
+						// log and report error
+						Error = true;
+					}
+
+					break;
+				}
 			}
 		}
 	}

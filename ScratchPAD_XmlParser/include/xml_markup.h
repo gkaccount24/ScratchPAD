@@ -56,6 +56,8 @@ struct xml_markup
 	xml_markup(const char* StartLexeme, 
 			   const char* EndLexeme);
 
+	xml_markup(const char* NameToken);
+
 	~xml_markup();
 
 	/***

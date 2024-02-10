@@ -28,6 +28,32 @@ xml_markup::xml_markup(const char* MarkupStartTag,
 	EndTag = MarkupEndTag;
 }
 
+xml_markup::xml_markup(const char* NameToken)
+{
+	string Name(NameToken);
+
+	string TempStartTag;
+	string TempEndTag;
+
+	TempStartTag.append("<");
+
+	if(!Name.empty())
+	{
+		TempStartTag.append(NameToken);
+	}
+
+	TempStartTag.append(">");
+
+	TempEndTag.append("</");
+
+	if(!Name.empty())
+	{
+		TempEndTag.append(NameToken);
+	}
+
+	TempEndTag.append(">");
+}
+
 xml_markup::~xml_markup()
 {
 	if(!Attributes.empty())

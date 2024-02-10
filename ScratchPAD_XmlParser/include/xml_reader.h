@@ -14,6 +14,23 @@ using std::flush;
 using std::endl;
 using std::string;
 
+enum class xml_name_tokens
+{
+
+};
+
+struct xml_name_token
+{
+	string Name;
+};
+
+static xml_name_token* CreateNameToken(const char* NewNameToken, size_t Length)
+{
+	string NameToken(NewNameToken, Length);
+
+	return new xml_name_token { move(NameToken) };
+}
+
 /***
 **** VARIOUS XML READER MODES
 ***/
@@ -51,6 +68,7 @@ struct xml_reader
 	const char* SelectedByteMirror;
 
 	// Position and Buffer size
+	size_t WSSkipped;
 	size_t BufferPos;
 	size_t BufferSize;
 	size_t BytesAvailable;
@@ -58,6 +76,7 @@ struct xml_reader
 	// Reading State flags
 	bool EndOfBuffer;
 
+	vector<xml_name_token*>       NameTokenStack;
 	vector<xml_markup*>			  MarkupNodeStack;
 	vector<xml_markup_attribute*> MarkupAttributeStack;
 
@@ -70,17 +89,19 @@ struct xml_reader
 	void RemoveWS();
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
+	bool TryToParseNameToken();
+	bool TryToParseStartTag();
+	bool TryToParseEndTag();
+
 	bool TryToParseDocumentDeclarationMarkup();
 	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
 	bool TryToParseAttributeValue();
 
 	void PopMarkupNodeStack();
 
+	void PushNewMarkupAttribute(const char* AttributeName);
 	void PushNewMarkup(const char* StartTag, const char* EndTag);
 	void PopNewMarkup();
-
-	void PushNewMarkupAttribute(const char* AttributeName);
-	void PopNewMarkupAttribute();
 
 private:
 	xml_reader(const xml_reader& Rhs) = delete;
