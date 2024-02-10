@@ -45,6 +45,7 @@ xml_reader::xml_reader(xml_document* XMLDoc)
 		SelectedByteMirror = SelectedByte;
 
 		EndOfBuffer = false;
+		Peeking = false;
 
 		if(SelectedByte == BufferEnd)
 		{
@@ -92,144 +93,139 @@ xml_reader::~xml_reader()
 	BytesAvailable = 0;
 
 	// Reading State flags
+	Peeking = false;
 	EndOfBuffer = true;
 }
 
-bool xml_reader::IsWhitespace(bool LookAhead)
+bool xml_reader::IsWS()
 {
-	bool Whitespace = false;
+	bool WS = false;
 
-	if(!LookAhead)
+	if(!Peeking)
 	{
-		Whitespace = Extract(SelectedByte) == ' ' ||
-					 Extract(SelectedByte) == '\t' ||
-				     Extract(SelectedByte) == '\r' ||
-					 Extract(SelectedByte) == '\n';
+		WS = Extract(SelectedByte) == ' ' ||
+			 Extract(SelectedByte) == '\t' ||
+			 Extract(SelectedByte) == '\r' ||
+			 Extract(SelectedByte) == '\n';
 	}
 	else
 	{
-		Whitespace = Extract(SelectedByteMirror) == ' ' ||
-					 Extract(SelectedByteMirror) == '\t' ||
-				     Extract(SelectedByteMirror) == '\r' ||
-				     Extract(SelectedByteMirror) == '\n';
+		WS = Extract(SelectedByteMirror) == ' ' ||
+			 Extract(SelectedByteMirror) == '\t' ||
+		     Extract(SelectedByteMirror) == '\r' ||
+			 Extract(SelectedByteMirror) == '\n';
 	}
 
-	return Whitespace;
+	return WS;
 }
 
-void xml_reader::Rewind(size_t ByteCount)
+void xml_reader::ConsumeWS()
 {
-	SelectedByteMirror = SelectedByte;
-	BytesAvailable += ByteCount;
-}
-
-void xml_reader::LookAhead(size_t ByteCount, bool RewindMirror)
-{
-	/**
-	*** Look Ahead to the next byte
-	***
-	*/
-
-	if(!IsWhitespace(true))
+	while(!EndOfBuffer && IsWS())
 	{
-		Advance(ByteCount, true);
-
-		if(RewindMirror)
+		if(Peeking)
 		{
-			Rewind(ByteCount);
+			PeekNext();
+		}
+		else
+		{
+			Advance();
 		}
 	}
 }
 
-void xml_reader::Advance(size_t ByteCount, bool LookAhead)
+void xml_reader::Consume()
+{
+	BytesAvailable = BufferEnd - SelectedByteMirror;
+	BufferPos = BufferSize - BytesAvailable;
+	SelectedByte = SelectedByteMirror;
+
+}
+
+void xml_reader::PeekNext(size_t ByteCount)
 {
 	if(BytesAvailable > ByteCount)
 	{
-		if(!LookAhead)
-		{
-			SelectedByte += ByteCount;
-			BufferPos += ByteCount;
+		SelectedByteMirror += ByteCount;
 
-			SelectedByteMirror = SelectedByte;
-			BytesAvailable -= ByteCount;
-		}
-		else
-		{
-			SelectedByteMirror += ByteCount;
-			BytesAvailable -= ByteCount;
-		}
+		BufferPos += ByteCount;
+		BytesAvailable -= ByteCount;
 	}
 	else
 	{
-		if(!LookAhead)
-		{
-			SelectedByte += BytesAvailable;
-			BufferPos += BytesAvailable;
+		SelectedByteMirror += BytesAvailable;
 
-			SelectedByteMirror = SelectedByte;
-		}
-		else
-		{
-			SelectedByteMirror += BytesAvailable;
-			BytesAvailable = 0;
-			EndOfBuffer = true;
-		}
+		BufferPos += BytesAvailable;
+		BytesAvailable = 0;
+		EndOfBuffer = true;
 	}
 }
 
-void xml_reader::SkipWS(bool LookAhead)
+void xml_reader::Advance(size_t ByteCount)
 {
-	while(!EndOfBuffer && IsWhitespace(LookAhead))
+	if(BytesAvailable > ByteCount)
 	{
-		Advance(1, LookAhead);
+		SelectedByte += ByteCount;
+		SelectedByteMirror += ByteCount;
+
+		BufferPos += ByteCount;
+		BytesAvailable -= ByteCount;
+	}
+	else
+	{
+		SelectedByte += BytesAvailable;
+		SelectedByteMirror += BytesAvailable;
+
+		BufferPos += BytesAvailable;
+		BytesAvailable = 0;
+		EndOfBuffer = true;
 	}
 }
 
-bool xml_reader::CompareBytes(const char* SrcBytes, size_t ByteCount, bool RewindMirror)
+bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 {
 	if(ByteCount > BytesAvailable)
 	{
 		return false;
 	}
 
+	const char*& SelectedByteReference = Peeking ? SelectedByteMirror : SelectedByte;
+
 	bool Equal = true;
 
 	for(size_t CharIndex = 0; CharIndex < ByteCount; CharIndex++)
 	{
-		if(SelectedByteMirror && Extract(SelectedByteMirror) != SrcBytes[CharIndex])
+		if(SelectedByteReference && Extract(SelectedByteReference) != SrcBytes[CharIndex])
 		{
 			// we have a problem
 			Equal = false;
 			break;
 		}
 
-		SelectedByteMirror++;
-	}
-
-	if(RewindMirror)
-	{
-		SelectedByteMirror = SelectedByte;
+		SelectedByteReference++;
 	}
 
 	return Equal;
 }
 
-bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
+bool xml_reader::TryToParseAttributeValue()
 {
 	bool Parsed = false;
 
-	if(CompareBytes("\"", 1, RewindMirror))
+	if(BytesMatch("\"", 1))
 	{
-		while(SelectedByteMirror != BufferEnd)
+		const char*& SelectedByteReference = Peeking ? SelectedByteMirror : SelectedByte;
+
+		while(SelectedByteReference != BufferEnd)
 		{
-			if(CompareBytes("\"", 1, RewindMirror))
+			if(BytesMatch("\"", 1))
 			{
 				Parsed = true;
 				break;
 			}
 
-			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteMirror));
-			SelectedByteMirror++;
+			AttributeValueStack[AttributeValueCount].push_back(Extract(SelectedByteReference));
+			SelectedByteReference++;
 		}
 	}
 
@@ -238,13 +234,87 @@ bool xml_reader::TryToParseAttributeValue(bool RewindMirror)
 		AttributeValueCount++;
 	}
 
-	if(RewindMirror)
-	{
-		SelectedByteMirror = SelectedByte;
-	}
-
 	return Parsed;
 }
+
+bool xml_reader::TryToParseAttribute(const char* Lexeme, size_t ByteCount) 
+{
+	if(BytesMatch(Lexeme, ByteCount))
+	{
+		// matched attribute lexeme
+		Consume();
+
+		if(BytesMatch("=", 1))
+		{
+			// matched attribute assignment
+			Consume();
+
+			if(TryToParseAttributeValue())
+			{
+				
+				return true;
+			}
+		}
+		else
+		{
+			// error
+			// break;
+		}
+	}
+	else
+	{
+
+		return false;
+	}
+}
+
+bool xml_reader::TryToParseDocumentAttributes()
+{
+	Peeking = true;
+
+	xml_markup XMLDeclarationMarkup(BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", "?>");
+
+	if(BytesMatch(XMLDeclarationMarkup.FirstLexeme.c_str(),
+				  XMLDeclarationMarkup.FirstLexeme.size()))
+	{
+		Consume();
+
+		size_t AttributeCount = XMLDeclarationMarkup.Attributes.size();
+
+		for(size_t Index = 0; Index < AttributeCount; Index++)
+		{
+			const char* ExpectedBytes = XMLDeclarationMarkup.Attributes[Index].ExpectedBytes.c_str();
+			size_t ByteCount = XMLDeclarationMarkup.Attributes[Index].ExpectedBytes.size();
+
+			if(TryToParseAttribute(ExpectedBytes, ByteCount))
+			{
+
+			}
+		}
+
+		// matched declaration lexeme
+		if(BytesMatch(XMLDeclarationMarkup.LastLexeme.c_str(), 
+					  XMLDeclarationMarkup.LastLexeme.size()))
+		{
+
+			return true;
+		}
+		else
+		{
+			// log error & 
+			// report error
+		}
+	}
+	else
+	{
+		// log error & 
+		// report error
+
+		return false;
+	}
+}
+
+
 
 void xml_reader::PopAttributeValueStack()
 {
@@ -273,7 +343,11 @@ bool xml_reader::Read()
 {
 	if(Doc && Doc->IsOpen())
 	{
+		if(TryToParseDocumentAttributes())
+		{
+			// Doc->SetDocAttribute
 
+		}
 	}
 
 	return EndOfBuffer;

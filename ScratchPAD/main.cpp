@@ -124,7 +124,7 @@ int main(int ArgCount, char* ArgV[])
 	{
 		xml_reader Reader(XMLDoc);
 
-		if(!Reader.Read(XMLDoc))
+		if(!Reader.Read())
 		{
 			ExitCode = FailedToReadDoc;
 		}

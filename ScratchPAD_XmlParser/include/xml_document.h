@@ -1,7 +1,8 @@
 #ifndef XML_DOCUMENT_H
 #define XML_DOCUMENT_H
 
-#include <win32_io.h>
+#include "win32_io.h"
+#include "xml_markup.h"
 
 enum class xml_builtin_doc_attributes
 {
@@ -17,8 +18,9 @@ enum class xml_builtin_doc_attributes
 
 struct xml_document
 {
-	file*  FileHandle;
-	string Attributes[XMLDocumentAttributeEnumIndex(Count)];
+	file*		FileHandle;
+	string		Attributes[XMLDocumentAttributeEnumIndex(Count)];
+	xml_markup* RootMarkupNode;
 
     xml_document(const char* Path);
 
@@ -30,7 +32,7 @@ struct xml_document
 	void Close();
 
 	void SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, string Value);
-	bool ParsedVersion();
+	bool ParsedRequiredAttributes();
 
 	static xml_document* CreateAndOpen(const char* Path);
 	static xml_document* Create(const char* Path);

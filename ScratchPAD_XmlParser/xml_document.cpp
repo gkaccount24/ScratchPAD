@@ -1,7 +1,8 @@
 #include "./include/xml_document.h"
 
 xml_document::xml_document():
-	FileHandle(nullptr)
+	FileHandle(nullptr),
+	RootMarkupNode(nullptr)
 {
 
 }
@@ -100,7 +101,7 @@ void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, str
 	}
 }
 
-bool xml_document::ParsedVersion()
+bool xml_document::ParsedRequiredAttributes()
 {
 	return !Attributes[XMLDocumentAttributeEnumIndex(Version)].empty();
 }

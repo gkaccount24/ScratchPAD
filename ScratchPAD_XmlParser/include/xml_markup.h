@@ -23,9 +23,9 @@ enum class xml_builtin_markup_tags
 
 struct xml_markup_attribute
 {
-	const char* ExpectedBytes;
-	string		ActualBytes;
-	string		Value;
+	string ExpectedBytes;
+	string ActualBytes;
+	string Value;
 };
 
 #define MarkupAttributeEnum(Attribute)(xml_builtin_markup_tag_attributes::Attribute)
@@ -64,14 +64,14 @@ struct xml_markup
 **/
 inline static const xml_markup* GetBuiltinMarkupTags()
 {
-	static xml_markup_attribute XML_DECL_TAG_BUILTIN_ATTRIBUTES[]
+	static xml_markup_attribute Attributes[]
 	{
 		xml_markup_attribute  { "version"    },
 		xml_markup_attribute  { "encoding"   },
 		xml_markup_attribute  { "standalone" },
 	};
 
-	static xml_markup BUILTIN_MARKUP_TAGS[] 
+	static xml_markup Markup[] 
 	{
 		xml_markup(BuiltinMarkupTagTypeEnum(PrologAndTypeDeclTag), "<?xml", "?>"),
 		xml_markup(BuiltinMarkupTagTypeEnum(CommentTag), "<!--", "-->"),
@@ -80,7 +80,7 @@ inline static const xml_markup* GetBuiltinMarkupTags()
 		xml_markup(BuiltinMarkupTagTypeEnum(CharDataTag), "<", ">")
 	};
 
-	return &BUILTIN_MARKUP_TAGS[0];
+	return &Markup[0];
 }
 
 #endif
