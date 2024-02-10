@@ -330,10 +330,15 @@ bool xml_reader::Read()
 {
 	if(Doc && Doc->IsOpen())
 	{
-		if(TryToParseDocumentAttributes())
+		if(!Doc->ParsedDeclaration())
 		{
-			// Doc->SetDocAttribute
+			if(TryToParseDocumentAttributes())
+			{
+				// log & recorrd document 
+				// parsing activity
 
+				// xml_markup::Create()
+			}
 		}
 	}
 

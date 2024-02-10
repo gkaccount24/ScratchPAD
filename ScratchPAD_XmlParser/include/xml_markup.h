@@ -46,6 +46,8 @@ struct xml_markup
 	string FirstLexeme;
 	string LastLexeme;
 
+	bool DocumentDeclaration;
+
 	// parsed/preconfigured markup attributes
 	vector<xml_markup_attribute*> Attributes;
 

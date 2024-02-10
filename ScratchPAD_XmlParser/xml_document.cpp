@@ -101,7 +101,13 @@ void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, str
 	}
 }
 
+bool xml_document::ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribute)
+{
+	return RootMarkupNode && RootMarkupNode->DocumentDeclaration && 
+		   !Attributes[(int) Attribute].empty();
+}
+
 bool xml_document::ParsedDeclaration()
 {
-	return !Attributes[XMLDocumentAttributeEnumIndex(Version)].empty();
+	return ParsedDeclarationAttribute(XMLDocumentAttributeEnum(Version));
 }

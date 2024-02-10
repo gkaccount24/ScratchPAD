@@ -32,6 +32,7 @@ struct xml_document
 	void Close();
 
 	void SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, string Value);
+	bool ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribute);
 	bool ParsedDeclaration();
 
 	static xml_document* CreateAndOpen(const char* Path);
