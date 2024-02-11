@@ -89,9 +89,7 @@ struct xml_reader
 	void RemoveWS();
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
-	bool TryToParseNameToken();
-	bool TryToParseStartTag();
-	bool TryToParseEndTag();
+	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
 
 	bool TryToParseDocumentDeclarationMarkup();
 	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);

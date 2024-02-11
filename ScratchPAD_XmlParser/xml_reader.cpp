@@ -248,7 +248,16 @@ void xml_reader::PushNewMarkup(const char* StartTag, const char* EndTag)
 
 void xml_reader::PushNewMarkup(const char* NameToken, size_t Length)
 {
-	PushMarkupNode(MarkupNodeStack, xml_markup::Create(NameToken, Length));
+	xml_markup* MarkupNode = nullptr;
+
+	if(!MarkupNodeStack.empty())
+	{
+		if(MarkupNode = xml_markup::Create(NameToken, Length))
+		{
+			MarkupNodeStack.back()->Children.push_back(MarkupNode);
+			PushMarkupNode(MarkupNodeStack, MarkupNode);
+		}
+	}
 }
 
 void xml_reader::PopNewMarkup()
@@ -373,93 +382,53 @@ void xml_reader::PopMarkupNodeStack()
 	}
 }
 
-bool xml_reader::TryToParseNameToken()
+bool IsDelimiter(const char* SelectedByteMirror)
 {
-	size_t NameTokenByteCount = 0;
-	size_t NameTokenTotalByteCount = 0;
+	bool Delimiter = (Extract(SelectedByteMirror) == ' ' || 
+					  Extract(SelectedByteMirror) == '=' ||
+					  Extract(SelectedByteMirror) == '\t' ||
+					  Extract(SelectedByteMirror) == '\r' ||
+					  Extract(SelectedByteMirror) == '\n' ||
+					  Extract(SelectedByteMirror) == '>');
 
-	if(Extract(SelectedByteMirror) == '<')
-	{
-		NameTokenTotalByteCount++;
-		SelectedByteMirror++;
-
-		bool Parsed = false;
-
-		while(SelectedByteMirror != BufferEnd)
-		{
-			if(Extract(SelectedByteMirror) == '>')
-			{
-				NameTokenTotalByteCount++;
-				SelectedByteMirror++;
-				Parsed = true;
-
-				break;
-			}
-
-			SelectedByteMirror++;
-			NameTokenByteCount++;
-			NameTokenTotalByteCount++;
-		}
-
-		if(Parsed)
-		{
-			SelectedByte = SelectedByteMirror;
-			BufferPos += NameTokenTotalByteCount;
-			BytesAvailable -= NameTokenTotalByteCount;
-
-			return true;
-		}
-	}
-
-	return false;
+	return Delimiter;
 }
 
-bool xml_reader::TryToParseEndTag()
+bool xml_reader::TryToParseNameToken(char Delimiter, bool EatInitialByte)
 {
-
-	return true;
-}
-
-bool xml_reader::TryToParseStartTag()
-{
-	size_t NameTokenTotalByteCount = 0;
-
-	if(Extract(SelectedByteMirror) != '<')
-	{
-		// report & log error	
-		// exit method
-		return false;
-	}
-
-	NameTokenTotalByteCount++;
-	SelectedByteMirror++;
-
 	RemoveWS();
 
-	NameTokenTotalByteCount += WSSkipped;
-	SelectedByteMirror += WSSkipped;
+	if(EatInitialByte)
+	{
+		SelectedByte++;
+		SelectedByteMirror++;
+
+		BufferPos++;
+		BytesAvailable--;
+	}
 
 	size_t NameTokenByteCount = 0;
-	const char* NameToken = SelectedByteMirror;
+	size_t NameTokenTotalByteCount = 0;
 
-	bool Parsed = false;
+	const char* NameTokenText = SelectedByteMirror;
+
+	bool ParsedToDelimiter = false;
+	bool ParsedToWS = false;
 
 	while(SelectedByteMirror != BufferEnd)
 	{
-		if(Extract(SelectedByteMirror) == '>')
+		if(Extract(SelectedByteMirror) == Delimiter)
 		{
 			NameTokenTotalByteCount++;
 			SelectedByteMirror++;
-			Parsed = true;
+			ParsedToDelimiter = true;
 
 			break;
 		}
-
-		if(NameTokenByteCount > 0 && IsWS())
+		else if(NameTokenByteCount > 0 && IsWS())
 		{
-			// done parsing name token
-			SelectedByteMirror++;
-			NameTokenTotalByteCount++;
+			ParsedToWS = true;
+			break;
 		}
 		else
 		{
@@ -469,18 +438,18 @@ bool xml_reader::TryToParseStartTag()
 		}
 	}
 
-	if(Parsed)
+	if(ParsedToDelimiter || ParsedToWS)
 	{
-		NameTokenStack.push_back(CreateNameToken(NameToken, NameTokenByteCount));
+		NameTokenStack.push_back(CreateNameToken(NameTokenText, NameTokenByteCount));
 
 		SelectedByte = SelectedByteMirror;
 		BufferPos += NameTokenTotalByteCount;
 		BytesAvailable -= NameTokenTotalByteCount;
 
-		return true;
+		return ParsedToDelimiter;
 	}
 
-	return false;
+	return ParsedToDelimiter;
 }
 
 bool xml_reader::Read()
@@ -494,7 +463,7 @@ bool xml_reader::Read()
 				// log & recorrd document 
 				// parsing activity
 
-				PopMarkupNodeStack();
+				// PopMarkupNodeStack();
 			}
 		}
 
@@ -506,26 +475,30 @@ bool xml_reader::Read()
 			{
 				case '<':
 				{
-					if(!TryToParseStartTag())
-					{
-						// log and report error
-						Error = true;
+					if(!TryToParseNameToken('>'))
+					{ 
+						while(TryToParseNameToken('=', false))
+						{
+							PushNewMarkupAttribute(NameTokenStack.back()->Name.c_str());
+						}
 					}
-
-					// get last name token
-					if(!NameTokenStack.empty())
+					else
 					{
-						PushNewMarkup(NameTokenStack.back()->Name.c_str(), 
-									  NameTokenStack.back()->Name.size());
+						// get last name token
+						if(!NameTokenStack.empty())
+						{
+							PushNewMarkup(NameTokenStack.back()->Name.c_str(),
+										  NameTokenStack.back()->Name.size());
+						}
 					}
 
 					RemoveWS();
-
+					
 					break;
 				}
 				case '>':
 				{
-					if(!TryToParseEndTag())
+					if(!false)
 					{
 						// log and report error
 						Error = true;

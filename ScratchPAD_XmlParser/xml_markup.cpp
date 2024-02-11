@@ -59,6 +59,9 @@ xml_markup::xml_markup(string&& NameToken)
 	}
 
 	TempEndTag.append(">");
+
+	StartTag = TempStartTag;
+	EndTag = TempEndTag;
 }
 
 xml_markup::~xml_markup()
