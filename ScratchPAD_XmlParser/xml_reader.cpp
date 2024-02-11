@@ -13,6 +13,11 @@
 #define AppendAttributeString(AttributeStack, AttributeValue, Length)\
 	(AttributeStack.back()->Value\
 				   .insert(0, AttributeValue, Length))\
+
+#define AppendMarkupText(MarkupNode, Text, Length)(MarkupNode->Text.insert(0, Text, Length)
+#define AppendMarkupChild(MarkupNode, Child)(MarkupNode->Children.push_back(Child))
+#define AppendMarkupAttribute(MarkupNode, Attribute)(MarkupNode->Attributes.push_back(Attribute))
+
 /**
 *** XML_READER
 */
@@ -254,7 +259,7 @@ void xml_reader::PushNewMarkup(const char* NameToken, size_t Length)
 	{
 		if(MarkupNode = xml_markup::Create(NameToken, Length))
 		{
-			MarkupNodeStack.back()->Children.push_back(MarkupNode);
+			AppendMarkupChild(CurrentMarkupNode(MarkupNodeStack), MarkupNode);
 			PushMarkupNode(MarkupNodeStack, MarkupNode);
 		}
 	}
@@ -365,7 +370,7 @@ void xml_reader::PopMarkupNodeStack()
 		xml_markup_attribute* Attribute = MarkupAttributeStack.back();
 		MarkupAttributeStack.pop_back();
 
-		CurrentMarkupNode(MarkupNodeStack)->Attributes.push_back(Attribute);
+		AppendMarkupAttribute(CurrentMarkupNode(MarkupNodeStack), Attribute);
 	}
 
 
@@ -471,62 +476,82 @@ bool xml_reader::Read()
 
 		while(SelectedByte != BufferEnd && !Error)
 		{
-			switch(Extract(SelectedByte))
+			if(Extract(SelectedByte) == '<')
 			{
-				case '<':
+				switch(Mode)
 				{
-					if(!TryToParseNameToken('>'))
-					{ 
-						PushNewMarkup(NameTokenStack.back()->Name.c_str(),
-									  NameTokenStack.back()->Name.size());
-
-						while(TryToParseNameToken('=', false))
-						{
-							// parsed attribute assignment
-							PushNewMarkupAttribute(NameTokenStack.back()->Name.c_str());
-
-							if(TryToParseAttributeValue())
-							{
-								// successfully parsed 
-								// attribute value
-
-								MarkupNodeStack.back()->Attributes.push_back(MarkupAttributeStack.back());
-							}
-						}
-
-						if(Extract(SelectedByteMirror) == '>')
-						{
-							SelectedByte++;
-							SelectedByteMirror++;
-
-							BufferPos++;
-							BytesAvailable--;
-						}
-					}
-					else
+					case XMLReaderModeEnum(ReadingCharData):
 					{
-						// get last name token
-						if(!NameTokenStack.empty())
+						if(BytesMatch(CurrentMarkupNode(MarkupNodeStack)->EndTag.c_str(),
+									  CurrentMarkupNode(MarkupNodeStack)->EndTag.size()))
+						{
+							PopMarkupNodeStack();
+						}
+
+						break;
+					}
+
+					case XMLReaderModeEnum(Nothing):
+					{
+						Mode = XMLReaderModeEnum(ReadingStartTag);
+
+						if(!TryToParseNameToken('>'))
 						{
 							PushNewMarkup(NameTokenStack.back()->Name.c_str(),
 										  NameTokenStack.back()->Name.size());
+
+							while(TryToParseNameToken('=', false))
+							{
+								// parsed attribute assignment
+								PushNewMarkupAttribute(NameTokenStack.back()->Name.c_str());
+
+								if(TryToParseAttributeValue())
+								{
+									// successfully parsed 
+									// attribute value
+
+									AppendMarkupAttribute(CurrentMarkupNode(MarkupNodeStack), MarkupAttributeStack.back());
+								}
+							}
+
+							if(Extract(SelectedByteMirror) == '>')
+							{
+								Mode = XMLReaderModeEnum(ReadingCharData);
+
+								SelectedByte++;
+								SelectedByteMirror++;
+
+								BufferPos++;
+								BytesAvailable--;
+							}
 						}
-					}
+						else
+						{
+							Mode = XMLReaderModeEnum(ReadingCharData);
 
-					RemoveWS();
-					
-					break;
-				}
-				case '>':
-				{
-					if(!false)
-					{
-						// log and report error
-						Error = true;
-					}
+							// get last name token
+							if(!NameTokenStack.empty())
+							{
+								PushNewMarkup(NameTokenStack.back()->Name.c_str(),
+											  NameTokenStack.back()->Name.size());
+							}
+						}
 
-					break;
+						RemoveWS();
+						break;
+					}
 				}
+			}
+			else if(Extract(SelectedByte) > 0 &&
+					Extract(SelectedByte) < 128)
+			{
+				CharDataBuf.push_back(Extract(SelectedByte));
+
+				SelectedByte++;
+				SelectedByteMirror++;
+
+				BufferPos++;
+				BytesAvailable--;
 			}
 		}
 	}

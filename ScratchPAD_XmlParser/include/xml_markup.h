@@ -43,9 +43,9 @@ static xml_markup_attribute* CreateAttribute(const char* AttributeName)
 
 struct xml_markup
 {
-	// starting tag lexeme
 	string StartTag;
 	string EndTag;
+	string Text;
 
 	// parsed/preconfigured markup attributes
 	vector<xml_markup_attribute*> Attributes;

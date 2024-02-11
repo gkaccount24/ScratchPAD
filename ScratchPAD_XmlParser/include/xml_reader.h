@@ -37,13 +37,14 @@ static xml_name_token* CreateNameToken(const char* NewNameToken, size_t Length)
 
 enum class xml_reader_mode
 {
-	ReadingCommentTag = 0,
-	ReadingCharDataTag = 1,
-	ReadingProcessingInstructionTag = 2,
-	ReadingPrologAndTypeDeclTag = 3,
-	ReadingCDataSectionTag = 4,
-	Nothing = 5,
-	Count = 6
+	ReadingPrologAndTypeDeclTag = 0,
+	ReadingCDataSectionTag = 1,
+	ReadingStartTag = 2,
+	ReadingTagAttribute = 3,
+	ReadingEndTag = 4,
+	ReadingCharData = 5,
+	Nothing = 6,
+	Count = 7
 };
 
 #define XMLReaderModeEnum(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
@@ -75,6 +76,7 @@ struct xml_reader
 
 	// Reading State flags
 	bool EndOfBuffer;
+	string CharDataBuf;
 
 	vector<xml_name_token*>       NameTokenStack;
 	vector<xml_markup*>			  MarkupNodeStack;
