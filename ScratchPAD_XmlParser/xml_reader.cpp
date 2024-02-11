@@ -477,9 +477,30 @@ bool xml_reader::Read()
 				{
 					if(!TryToParseNameToken('>'))
 					{ 
+						PushNewMarkup(NameTokenStack.back()->Name.c_str(),
+									  NameTokenStack.back()->Name.size());
+
 						while(TryToParseNameToken('=', false))
 						{
+							// parsed attribute assignment
 							PushNewMarkupAttribute(NameTokenStack.back()->Name.c_str());
+
+							if(TryToParseAttributeValue())
+							{
+								// successfully parsed 
+								// attribute value
+
+								MarkupNodeStack.back()->Attributes.push_back(MarkupAttributeStack.back());
+							}
+						}
+
+						if(Extract(SelectedByteMirror) == '>')
+						{
+							SelectedByte++;
+							SelectedByteMirror++;
+
+							BufferPos++;
+							BytesAvailable--;
 						}
 					}
 					else
