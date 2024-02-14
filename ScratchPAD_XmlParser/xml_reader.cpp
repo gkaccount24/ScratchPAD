@@ -423,12 +423,19 @@ bool xml_reader::Read()
 				{
 					xml_markup* MarkupNode = MarkupStack.back();
 
-					if(MarkupNode->EndTag == SelectedByteMirror)
+					if(BytesMatch(MarkupNode->EndTag.c_str(), 
+								  MarkupNode->EndTag.size()))
 					{
 						// matched end tag
 						// pop markup node stack
 
 						MarkupStack.pop_back();
+					}
+					else if(!CharDataBuf.empty())
+					{
+						MarkupNode->Text = move(CharDataBuf);
+
+						CharDataBuf.clear();
 					}
 				}
 
