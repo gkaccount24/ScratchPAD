@@ -1,14 +1,18 @@
 #include "./include/xml_document.h"
 
-xml_document::xml_document():
-	FileHandle(nullptr),
-	RootMarkupNode(nullptr)
+xml_document::xml_document()
 {
-
+	FileHandle = nullptr;
+	RootMarkupNode = nullptr;
+	ParsedDeclarationMarkup = false;
 }
 
 xml_document::xml_document(const char* Path)
 {
+	FileHandle = nullptr;
+	RootMarkupNode = nullptr;
+	ParsedDeclarationMarkup = false;
+
 	if(!Open(Path))
 	{
 		// 
@@ -108,5 +112,5 @@ bool xml_document::ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribu
 
 bool xml_document::ParsedDeclaration()
 {
-	return false;
+	return ParsedDeclarationMarkup;
 }

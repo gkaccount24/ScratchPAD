@@ -35,21 +35,21 @@ static xml_name_token* CreateNameToken(const char* NewNameToken, size_t Length)
 **** VARIOUS XML READER MODES
 ***/
 
-enum class xml_reader_mode
-{
-	ReadingPrologAndTypeDeclTag = 0,
-	ReadingCDataSectionTag = 1,
-	ReadingStartTag = 2,
-	ReadingTagAttribute = 3,
-	ReadingEndTag = 4,
-	ReadingCharData = 5,
-	Nothing = 6,
-	Count = 7
-};
-
-#define XMLReaderModeEnum(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
-#define XMLReaderModeIndex(ReaderModeEnum)((int)XMLReaderModeEnum(ReaderModeEnum))
-#define XMLReaderModeEnumFromIndex(ReaderModeEnumIndex)((xml_reader_mode)ReaderModeEnumIndex)
+// enum class xml_reader_mode
+// {
+// 	ReadingPrologAndTypeDeclTag = 0,
+// 	ReadingCDataSectionTag = 1,
+// 	ReadingStartTag = 2,
+// 	ReadingTagAttribute = 3,
+// 	ReadingEndTag = 4,
+// 	ReadingCharData = 5,
+// 	Nothing = 6,
+// 	Count = 7
+// };
+// 
+// #define XMLReaderModeEnum(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
+// #define XMLReaderModeIndex(ReaderModeEnum)((int)XMLReaderModeEnum(ReaderModeEnum))
+// #define XMLReaderModeEnumFromIndex(ReaderModeEnumIndex)((xml_reader_mode)ReaderModeEnumIndex)
 
 struct xml_reader
 {
@@ -58,7 +58,7 @@ struct xml_reader
 	xml_document* Doc;
 
 	// Current Reading Mode
-	xml_reader_mode Mode;
+	// xml_reader_mode Mode;
 
 	// Buffer Range
 	const char* BufferBegin;
@@ -78,31 +78,29 @@ struct xml_reader
 	bool EndOfBuffer;
 	string CharDataBuf;
 
-	vector<xml_name_token*>       NameTokenStack;
-	vector<xml_markup*>			  MarkupNodeStack;
+	vector<xml_name_token*> NameTokenStack;
+	vector<xml_markup*> MarkupStack;
 	vector<xml_markup_attribute*> MarkupAttributeStack;
 
 	xml_reader(xml_document* XMLDoc);
 	~xml_reader();
 
-	bool Read();
-	
-	bool IsWS();
-	void RemoveWS();
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
-	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
-
 	bool TryToParseDocumentDeclarationMarkup();
+	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
 	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
 	bool TryToParseAttributeValue();
 
-	void PopMarkupNodeStack();
+	void PushMarkupAttribute(const char* AttributeName, size_t ByteCount);
+	void PushMarkup(const char* StartTag, const char* EndTag);
+	void PushMarkup(const char* NameToken, size_t Length);
+	void PopMarkup();
 
-	void PushNewMarkupAttribute(const char* AttributeName);
-	void PushNewMarkup(const char* StartTag, const char* EndTag);
-	void PushNewMarkup(const char* NameToken, size_t Length);
-	void PopNewMarkup();
+	void RemoveWS();
+	bool IsWS();
+
+	bool Read();
 
 private:
 	xml_reader(const xml_reader& Rhs) = delete;

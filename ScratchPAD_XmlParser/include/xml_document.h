@@ -18,9 +18,10 @@ enum class xml_builtin_doc_attributes
 
 struct xml_document
 {
-	file*		FileHandle;
-	string		Attributes[XMLDocumentAttributeEnumIndex(Count)];
+	file* FileHandle;
+	string Attributes[XMLDocumentAttributeEnumIndex(Count)];
 	xml_markup* RootMarkupNode;
+	bool ParsedDeclarationMarkup;
 
     xml_document(const char* Path);
 

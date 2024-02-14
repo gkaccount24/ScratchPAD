@@ -7,6 +7,16 @@
 #define Extract(SelectedByte)(*(SelectedByte))
 #define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
+// #define CurrentMarkupNode(NodeStack)(NodeStack.back())
+// #define PushMarkupNode(NodeStack, Node)(NodeStack.push_back(Node))
+// #define PushMarkupAttribute(AttributeStack, Attribute)(AttributeStack.push_back(Attribute))
+//#define AppendAttributeString(AttributeStack, AttributeValue, Length)\
+	(AttributeStack.back()->Value\
+				   .insert(0, AttributeValue, Length))\
+#define AppendMarkupText(MarkupNode, Text, Length)(MarkupNode->Text.insert(0, Text, Length)
+//#define AppendMarkupChild(MarkupNode, Child)(MarkupNode->Children.push_back(Child))
+//#define AppendMarkupAttribute(MarkupNode, Attribute)(MarkupNode->Attributes.push_back(Attribute))
+
 /**
 *** XML_READER
 */
@@ -138,6 +148,7 @@ bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 bool xml_reader::TryToParseAttributeValue()
 {
 	assert(!MarkupStack.empty());
+	assert(!MarkupAttributeStack.empty());
 
 	bool Parsed = false;
 
@@ -191,7 +202,7 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 		return false;
 	}
 
-	PushMarkupAttribute(AttributeName, ByteCount);
+	PushMarkupAttribute(AttributeName);
 
 	RemoveWS();
 
@@ -214,9 +225,9 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 	return true;
 }
 
-void xml_reader::PushMarkupAttribute(const char* AttributeName, size_t ByteCount)
+void xml_reader::PushMarkupAttribute(const char* AttributeName)
 {
-	MarkupStack.push_back(xml_markup::Create(AttributeName, ByteCount));
+	// M
 }
 
 void xml_reader::PushMarkup(const char* StartTag, const char* EndTag)
@@ -434,8 +445,7 @@ bool xml_reader::Read()
 					while(TryToParseNameToken('=', false))
 					{
 						// parsed attribute assignment
-						PushMarkupAttribute(NameTokenStack.back()->Name.c_str(), 
-											NameTokenStack.back()->Name.size());
+						PushMarkupAttribute(NameTokenStack.back()->Name.c_str());
 
 						if(!TryToParseAttributeValue())
 						{
@@ -461,6 +471,8 @@ bool xml_reader::Read()
 					}
 
 					RemoveWS();
+
+					
 				}
 				else
 				{
