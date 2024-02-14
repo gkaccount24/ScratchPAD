@@ -14,42 +14,33 @@ using std::flush;
 using std::endl;
 using std::string;
 
-enum class xml_name_tokens
-{
-
-};
-
 struct xml_name_token
 {
 	string Name;
+
+	static xml_name_token* Create(const char* TokenText, size_t ByteCount)
+	{
+		string Text(TokenText, ByteCount);
+
+		if(!Text.empty())
+		{
+			xml_name_token* Token = nullptr;
+
+			if(Token = new xml_name_token())
+			{
+				Token->Name = move(Text);
+			}
+
+			return Token;
+		}
+
+		return nullptr;
+	}
 };
-
-static xml_name_token* CreateNameToken(const char* NewNameToken, size_t Length)
-{
-	string NameToken(NewNameToken, Length);
-
-	return new xml_name_token { move(NameToken) };
-}
 
 /***
 **** VARIOUS XML READER MODES
 ***/
-
-// enum class xml_reader_mode
-// {
-// 	ReadingPrologAndTypeDeclTag = 0,
-// 	ReadingCDataSectionTag = 1,
-// 	ReadingStartTag = 2,
-// 	ReadingTagAttribute = 3,
-// 	ReadingEndTag = 4,
-// 	ReadingCharData = 5,
-// 	Nothing = 6,
-// 	Count = 7
-// };
-// 
-// #define XMLReaderModeEnum(ReaderModeEnum)(xml_reader_mode::ReaderModeEnum)
-// #define XMLReaderModeIndex(ReaderModeEnum)((int)XMLReaderModeEnum(ReaderModeEnum))
-// #define XMLReaderModeEnumFromIndex(ReaderModeEnumIndex)((xml_reader_mode)ReaderModeEnumIndex)
 
 struct xml_reader
 {

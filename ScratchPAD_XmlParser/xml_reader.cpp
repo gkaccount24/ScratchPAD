@@ -11,7 +11,12 @@
 *** XML_READER
 */
 
-xml_reader::xml_reader(xml_document* XMLDoc)
+xml_reader::xml_reader(xml_document* XMLDoc):
+	Doc(nullptr), BufferSize(0),
+	BufferPos(0), BufferBegin(nullptr),
+	BufferEnd(nullptr), BytesAvailable(0),
+	SelectedByte(nullptr), SelectedByteMirror(nullptr),
+	EndOfBuffer(false), WSSkipped(0)
 {
 	if(XMLDoc && XMLDoc->IsOpen())
 	{
@@ -216,7 +221,7 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 
 void xml_reader::PushMarkupAttribute(const char* AttributeName, size_t ByteCount)
 {
-	MarkupStack.push_back(xml_markup::Create(AttributeName, ByteCount));
+	MarkupAttributeStack.push_back(CreateAttribute(AttributeName));
 }
 
 void xml_reader::PushMarkup(const char* StartTag, const char* EndTag)
@@ -228,13 +233,14 @@ void xml_reader::PushMarkup(const char* NameToken, size_t Length)
 {
 	xml_markup* MarkupNode = nullptr;
 
-	if(!MarkupStack.empty())
+	if(MarkupNode = xml_markup::Create(NameToken, Length))
 	{
-		if(MarkupNode = xml_markup::Create(NameToken, Length))
+		if(!MarkupStack.empty())
 		{
 			MarkupStack.back()->Children.push_back(MarkupNode);
-			MarkupStack.push_back(MarkupNode);
 		}
+
+		MarkupStack.push_back(MarkupNode);
 	}
 }
 
@@ -300,6 +306,8 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 			Doc->ParsedDeclarationMarkup = false;
 			break;
 		}
+
+		MarkupStack.back()->Attributes.push_back(MarkupAttributeStack.back());
 		
 		RemoveWS();
 	}
@@ -379,7 +387,7 @@ bool xml_reader::TryToParseNameToken(char Delimiter, bool EatInitialByte)
 
 	if(ParsedToDelimiter || ParsedToWS)
 	{
-		NameTokenStack.push_back(CreateNameToken(NameTokenText, NameTokenByteCount));
+		NameTokenStack.push_back(xml_name_token::Create(NameTokenText, NameTokenByteCount));
 
 		SelectedByte = SelectedByteMirror;
 		BufferPos += NameTokenTotalByteCount;
@@ -403,8 +411,6 @@ bool xml_reader::Read()
 				// report error
 				return false;
 			}
-
-			PopMarkup();
 		}
 
 		bool Error = false;
@@ -431,7 +437,7 @@ bool xml_reader::Read()
 					PushMarkup(NameTokenStack.back()->Name.c_str(),
 							   NameTokenStack.back()->Name.size());
 
-					while(TryToParseNameToken('=', false))
+					while(Extract(SelectedByteMirror) != '>' && TryToParseNameToken('=', false))
 					{
 						// parsed attribute assignment
 						PushMarkupAttribute(NameTokenStack.back()->Name.c_str(), 
@@ -439,40 +445,43 @@ bool xml_reader::Read()
 
 						if(!TryToParseAttributeValue())
 						{
-							// successfully parsed 
-							// attribute value
-
 							Error = true;
+
 							break;
 						}
 
-						if(Extract(SelectedByteMirror) == '>' && !Error)
+						if(!IsWS() && Extract(SelectedByteMirror) != '>')
 						{
-							SelectedByte++;
-							SelectedByteMirror++;
+							Error = true;
 
-							BufferPos++;
-							BytesAvailable--;
-
-							RemoveWS();
+							break;
 						}
 
 						MarkupStack.back()->Attributes.push_back(MarkupAttributeStack.back());
 					}
 
+					if(Extract(SelectedByteMirror) != '>' && !Error)
+					{
+						Error = true;
+
+						break;
+					}
+
+					SelectedByte++;
+					SelectedByteMirror++;
+
+					BufferPos++;
+					BytesAvailable--;
+
 					RemoveWS();
 				}
 				else
 				{
-					// Mode = XMLReaderModeEnum(ReadingCharData);
-
-					// get last name token
 					if(!NameTokenStack.empty())
 					{
 						PushMarkup(NameTokenStack.back()->Name.c_str(),
 								   NameTokenStack.back()->Name.size());
 					}
-
 
 					RemoveWS();
 				}
