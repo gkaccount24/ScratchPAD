@@ -22,12 +22,12 @@ xml_reader::xml_reader(xml_document* XMLDoc):
 	{
 		Doc = XMLDoc;
 
-		BufferSize = XMLDocumentBuffer(Doc).size();
+		BufferSize = XMLDoc->GetFileSize();
 		BufferPos = 0;
 
 		// Buffer Range
-		BufferBegin = XMLDocumentBuffer(Doc).data();
-		BufferEnd = XMLDocumentBuffer(Doc).data() + BufferSize;
+		BufferBegin = XMLDoc->BeginText();
+		BufferEnd = XMLDoc->EndText();
 
 		BytesAvailable = BufferSize;
 
@@ -221,12 +221,18 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 
 void xml_reader::PushMarkupAttribute(const char* AttributeName, size_t ByteCount)
 {
-	MarkupAttributeStack.push_back(CreateAttribute(AttributeName));
+	if(xml_markup_attribute* Attribute = xml_markup_attribute::Create(AttributeName))
+	{
+		MarkupAttributeStack.push_back(Attribute);
+	}
 }
 
 void xml_reader::PushMarkup(const char* StartTag, const char* EndTag)
 {
-	MarkupStack.push_back(xml_markup::Create(StartTag, EndTag));
+	if(xml_markup* Markup = xml_markup::Create(StartTag, EndTag))
+	{
+		MarkupStack.push_back(Markup);
+	}
 }
 
 void xml_reader::PushMarkup(const char* NameToken, size_t Length)
@@ -289,21 +295,21 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 		"standalone"
 	};
 
-	Doc->ParsedDeclarationMarkup = true;
+	bool ParsedDeclMarkup = true;
 
 	for(size_t Index = 0; Index < AttributeCount; Index++)
 	{
 		if(!TryToParseAttribute(Attributes[Index].c_str(), 
 								Attributes[Index].size()))
 		{
-			Doc->ParsedDeclarationMarkup = false;
+			ParsedDeclMarkup = false;
 			break;
 		}
 
 		// check for required space
 		if(!IsWS() && Attributes[Index] != "standalone")
 		{
-			Doc->ParsedDeclarationMarkup = false;
+			ParsedDeclMarkup = false;
 			break;
 		}
 
@@ -327,18 +333,6 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 	}
 
 	return Doc->ParsedDeclarationMarkup;
-}
-
-bool IsDelimiter(const char* SelectedByteMirror)
-{
-	bool Delimiter = (Extract(SelectedByteMirror) == ' ' || 
-					  Extract(SelectedByteMirror) == '=' ||
-					  Extract(SelectedByteMirror) == '\t' ||
-					  Extract(SelectedByteMirror) == '\r' ||
-					  Extract(SelectedByteMirror) == '\n' ||
-					  Extract(SelectedByteMirror) == '>');
-
-	return Delimiter;
 }
 
 bool xml_reader::TryToParseNameToken(char Delimiter, bool EatInitialByte)
@@ -512,9 +506,6 @@ bool xml_reader::Read()
 				BytesAvailable--;
 			}
 		}
-
-		std::cout << "wait here";
-		std::cin.get();
 	}
 
 	return EndOfBuffer;

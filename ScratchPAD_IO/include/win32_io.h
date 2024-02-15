@@ -55,14 +55,58 @@ enum class file_endianness
 #define HighNibble8(Bitmask)(((uint8_t) Bitmask) & 0xF0)
 #define LowNibble8(Bitmask)(((uint8_t) Bitmask) & 0x0F)
 
-struct file 
+class file 
 {
-    HANDLE _Id;
 
-    DWORD _DesiredAccess;
-    DWORD _ShareAccess;
-    DWORD _CreateFlags;
-    DWORD _AttributeFlags;
+public:
+     file() = default;
+    ~file() = default;
+
+    bool Open(const char* Path, DWORD DesiredAccess,
+              DWORD ShareAccess, DWORD CreateFlags,
+              DWORD AttributeFlags, LPSECURITY_ATTRIBUTES Security = 0);
+
+    bool OpenForReading(const char* Path);
+    bool OpenForWriting(const char* Path, bool OverWrite);
+    bool OpenForReadAndWrite(const char* Path, bool OverWrite);
+
+    bool Create(const char* Path, bool OverWrite);
+
+    void Close();
+
+public:
+    const char* BeginBuffer();
+    const char* EndBuffer();
+
+private:
+    bool TryToSetASCII();
+	bool TryToSetUTF8BOM();
+    bool TryToSetUTF16BOM();
+    bool TryToSetBOMAndFileEncoding();
+
+public:
+    void GetDirectoryContents(const char* Path, vector<file*>& Files);
+
+public:
+    void StatFile();
+
+    size_t GetSizeOnDisk();
+
+private:
+    bool SyncInternalBufferWithDisk();
+    bool ParseFilename();
+
+private:
+    file(const file& Rfile);
+    file(file&& Rfile);
+
+private:
+    HANDLE Id;
+
+    DWORD DesiredAccess;
+    DWORD ShareAccess;
+    DWORD CreateFlags;
+    DWORD AttributeFlags;
 
     file_encodings Encoding;
     file_bom_endianness BOMEndianness;
@@ -70,16 +114,18 @@ struct file
 
     bool EncodingAndBOMSet;
 
-    string _AbsPath;
-    string _Name;
+    string AbsPath;
+    string Name;
 
-    string _Buffer;
-    size_t _SizeOnDisk;
+    string Buffer;
+    size_t SizeOnDisk;
 
-    bool   _IsDir;
-    bool   _IsSync;
-    bool   _IsOpen;
-    bool   _IsLoaded;
+public:
+
+    bool IsDir;
+    bool IsSync;
+    bool IsOpen;
+    bool IsLoaded;
 
     WIN32_FILE_ATTRIBUTE_DATA Stat;
 };
@@ -87,30 +133,5 @@ struct file
 void ConsoleNotice(const char* Message);
 void ConsoleWarning(const char* Message);
 void ConsoleError(const char* Message);
-
-size_t GetSizeOnDisk(const char* Path);
-size_t GetSizeOnDisk(file* Node);
-void StatFile(file* Node);
-
-void CloseFile(file* File);
-
-file* Open(const char* Path, 
-              DWORD DesiredAccess, 
-              DWORD ShareAccess, 
-              DWORD CreateFlags, 
-              DWORD AttributeFlags, 
-              LPSECURITY_ATTRIBUTES SecAttributes = 0);
-
-file* OpenForReading(const char* Path);
-file* OpenForWriting(const char* Path, bool OverWrite = false);
-file* OpenForReadAndWrite(const char* Path, bool OverWrite = false);
-file* Create(const char* Path, bool OverWrite = false);
-
-bool TryToSetASCII(file* File);
-bool TryToSetUTF8BOM(file* File);
-bool TryToSetUTF16BOM(file* File);
-bool TryToSetBOMAndFileEncoding(file* File);
-
-void GetDirectoryContents(const char* Path, vector<file*>& Files);
 
 #endif

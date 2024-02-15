@@ -100,14 +100,14 @@ static void LogError(const char* Message, DWORD ErrorCode)
     ConsoleError(ErrorMessage.c_str());
 }
 
-void StatFile(file* Node)
+void file::StatFile()
 {
     GET_FILEEX_INFO_LEVELS RequestedFileInfo = GetFileExInfoStandard;
 
     size_t Result = 0;
     size_t Size = 0;
 
-    Result = GetFileAttributesExA(Node->_AbsPath.c_str(), RequestedFileInfo, &Node->Stat);
+    Result = GetFileAttributesExA(AbsPath.c_str(), RequestedFileInfo, &Stat);
 
     if(Result == 0)
     {
@@ -119,52 +119,51 @@ void StatFile(file* Node)
     {
         LARGE_INTEGER FileSize = { };
 
-        FileSize.LowPart = Node->Stat.nFileSizeLow;
-        FileSize.HighPart = Node->Stat.nFileSizeHigh;
+        FileSize.LowPart = Stat.nFileSizeLow;
+        FileSize.HighPart = Stat.nFileSizeHigh;
 
         Size = FileSize.QuadPart;
-        Node->_SizeOnDisk = Size;
+        SizeOnDisk = Size;
     }
 }
 
-size_t GetSizeOnDisk(const char* Path)
-{
-    GET_FILEEX_INFO_LEVELS RequestedFileInfo = GetFileExInfoStandard;
-    WIN32_FILE_ATTRIBUTE_DATA FileAttributes = { };
+//size_t file::GetSizeDisk(const char* Path)
+//{
+//    GET_FILEEX_INFO_LEVELS RequestedFileInfo = GetFileExInfoStandard;
+//    WIN32_FILE_ATTRIBUTE_DATA FileAttributes = { };
+//
+//    size_t Result = 0;
+//    size_t Size = 0;
+//
+//    Result = GetFileAttributesExA(Path, RequestedFileInfo, &FileAttributes);
+//
+//    if(Result == 0)
+//    {
+//        DWORD ErrorCode = GetLastError();
+//
+//        LogError("failed to get file attributes.\n", ErrorCode);
+//    }
+//    else
+//    {
+//        LARGE_INTEGER FileSize = { };
+//
+//        FileSize.LowPart = FileAttributes.nFileSizeLow;
+//        FileSize.HighPart = FileAttributes.nFileSizeHigh;
+//
+//        Size = FileSize.QuadPart;
+//    }
+//
+//    return Size;
+//}
 
-    size_t Result = 0;
-    size_t Size = 0;
-
-    Result = GetFileAttributesExA(Path, RequestedFileInfo, &FileAttributes);
-
-    if(Result == 0)
-    {
-        DWORD ErrorCode = GetLastError();
-
-        LogError("failed to get file attributes.\n", ErrorCode);
-    }
-    else
-    {
-        LARGE_INTEGER FileSize = { };
-
-        FileSize.LowPart = FileAttributes.nFileSizeLow;
-        FileSize.HighPart = FileAttributes.nFileSizeHigh;
-
-        Size = FileSize.QuadPart;
-    }
-
-    return Size;
-}
-
-
-size_t GetSizeOnDisk(file* Node)
+size_t file::GetSizeOnDisk()
 {
     size_t Result = 0;
     size_t Size = 0;
 
     LARGE_INTEGER Tmp = { };
 
-    Result = GetFileSizeEx(Node->_Id, &Tmp);
+    Result = GetFileSizeEx(Id, &Tmp);
 
     if(Result == 0)
     {
@@ -180,34 +179,34 @@ size_t GetSizeOnDisk(file* Node)
     return Size;
 }
 
-bool SyncInternalBufferWithDisk(file* Node)
+bool file::SyncInternalBufferWithDisk()
 {
-    if(Node->_IsOpen && !Node->_IsSync)
+    if(IsOpen && !IsSync)
     {
-        size_t SizeOnDisk = GetSizeOnDisk(Node);
+        size_t SizeOnDisk = GetSizeOnDisk();
 
         if(SizeOnDisk == 0)
         {
-            Node->_IsSync = true;
+            IsSync = true;
 
             // nothing loaded into memory from
             // physical storage volumes
-            Node->_IsLoaded = false;
+            IsLoaded = false;
         }
         else
         {
             size_t BufferSize = SizeOnDisk;
-            Node->_Buffer.resize(BufferSize);
+            Buffer.resize(BufferSize);
 
             DWORD BytesRead = 0;
             DWORD Result = 0;
 
-            Result = ReadFile(Node->_Id, Node->_Buffer.data(), BufferSize, &BytesRead, 0);
+            Result = ReadFile(Id, Buffer.data(), BufferSize, &BytesRead, 0);
 
             if(Result > 0 && BytesRead == BufferSize)
             {
-                Node->_IsSync = true;
-                Node->_IsLoaded = true;
+                IsSync = true;
+                IsLoaded = true;
             }
             else
             {
@@ -218,22 +217,22 @@ bool SyncInternalBufferWithDisk(file* Node)
         }
     }
 
-    return Node->_IsSync;
+    return IsSync;
 }
 
 #define HasReadAccess(Access)  (((Access) & GENERIC_READ)  > 0)
 #define HasWriteAccess(Access) (((Access) & GENERIC_WRITE) > 0)
 
-bool ParseFilename(file* File)
+bool file::ParseFilename()
 {
     bool Success = true;
 
-    size_t PathLength = File->_AbsPath.size();
+    size_t PathLength = AbsPath.size();
     size_t LastDelimPos = 0;
 
     for(size_t CharIndex = 0; CharIndex < PathLength; CharIndex++)
     {
-        if(File->_AbsPath[CharIndex] == '\\')
+        if(AbsPath[CharIndex] == '\\')
         {
             LastDelimPos = CharIndex;
         }
@@ -251,20 +250,30 @@ bool ParseFilename(file* File)
     {
         size_t Offset = LastDelimPos + 1;
 
-        File->_Name.insert(begin(File->_Name), 
-                           begin(File->_AbsPath) + Offset, 
-                           end(File->_AbsPath));
+        Name.insert(begin(Name), 
+				    begin(AbsPath) + Offset, 
+				    end(AbsPath));
     }
 
     return Success;
 }
 
-file* Open(const char* Path, 
-              DWORD DesiredAccess, 
-              DWORD ShareAccess, 
-              DWORD CreateFlags, 
-              DWORD AttributeFlags, 
-              LPSECURITY_ATTRIBUTES Security)
+const char* file::BeginBuffer()
+{
+    return Buffer.data();
+}
+
+const char* file::EndBuffer()
+{
+    return Buffer.data() + Buffer.size();
+}
+
+bool file::Open(const char* Path, 
+                DWORD DesiredAccess, 
+                DWORD ShareAccess, 
+                DWORD CreateFlags, 
+                DWORD AttributeFlags, 
+                LPSECURITY_ATTRIBUTES Security)
 {
     file* Node = nullptr;
 
@@ -282,26 +291,26 @@ file* Open(const char* Path,
     {
         Node = new file { };
 
-        Node->_Id = FileHandle;
+        Id = FileHandle;
 
-        Node->_DesiredAccess = DesiredAccess;
-        Node->_ShareAccess = ShareAccess;
-        Node->_CreateFlags = CreateFlags;
-        Node->_AttributeFlags = AttributeFlags;
+        DesiredAccess = DesiredAccess;
+        ShareAccess = ShareAccess;
+        CreateFlags = CreateFlags;
+        AttributeFlags = AttributeFlags;
 
-        Node->_AbsPath = Path;
+        AbsPath = Path;
 
-        ParseFilename(Node);
+        ParseFilename();
 
-        Node->_SizeOnDisk = GetSizeOnDisk(Path);
+        SizeOnDisk = GetSizeOnDisk();
 
-        Node->_IsDir = false;
-        Node->_IsOpen = true;
+        IsDir = false;
+        IsOpen = true;
 
-        Node->_IsSync = false;
-        Node->_IsLoaded = false;
+        IsSync = false;
+        IsLoaded = false;
 
-        if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk(Node))
+        if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk())
         {
             delete Node;
             Node = nullptr;
@@ -310,7 +319,7 @@ file* Open(const char* Path,
         }
         else
         {
-			if(!TryToSetBOMAndFileEncoding(Node))
+			if(!TryToSetBOMAndFileEncoding())
 			{
 				// log failed attempt to detect/set bom 
 				// and file encoding/endianness
@@ -327,7 +336,7 @@ file* Open(const char* Path,
     return Node;
 }
 
-file* Create(const char* Path, bool OverWrite)
+bool file::Create(const char* Path, bool OverWrite)
 {
     file* Node = nullptr;
 
@@ -337,19 +346,19 @@ file* Create(const char* Path, bool OverWrite)
     DWORD CreateFlags = !OverWrite ? CREATE_NEW : CREATE_ALWAYS;
     DWORD AttributeFlags = FILE_ATTRIBUTE_NORMAL;
 
-    Node = Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags, 0);
-
-    if(!Node)
+    if(!Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags, 0))
     {
         DWORD ErrorCode = GetLastError();
 
         LogError("failed to create file.\n", ErrorCode);
+
+        return false;
     }
 
-    return Node;
+    return true;
 }
 
-file* OpenForReading(const char* Path)
+bool file::OpenForReading(const char* Path)
 {
     DWORD DesiredAccess = GENERIC_READ;
     DWORD ShareAccess = FILE_SHARE_READ | FILE_SHARE_DELETE;
@@ -357,19 +366,19 @@ file* OpenForReading(const char* Path)
     DWORD CreateFlags = OPEN_EXISTING;
     DWORD AttributeFlags = FILE_ATTRIBUTE_NORMAL;
 
-    file* Node = Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags);
-
-	if(!Node)
+    if(!Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags))
     {
         DWORD ErrorCode = GetLastError();
 
         LogError("failed to open file for reading.\n", ErrorCode);
+
+        return false;
     }
 
-    return Node;
+    return true;
 }
 
-file* OpenForWriting(const char* Path, bool OverWrite)
+bool file::OpenForWriting(const char* Path, bool OverWrite)
 {
     DWORD DesiredAccess = GENERIC_WRITE;
     DWORD ShareAccess = FILE_SHARE_READ | FILE_SHARE_DELETE;
@@ -377,19 +386,19 @@ file* OpenForWriting(const char* Path, bool OverWrite)
     DWORD CreateFlags = !OverWrite ? OPEN_EXISTING : TRUNCATE_EXISTING;
     DWORD AttributeFlags = FILE_ATTRIBUTE_NORMAL;
 
-    file* Node = Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags);
-
-    if(!Node)
+    if(!Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags))
     {
         DWORD ErrorCode = GetLastError();
 
         LogError("failed to open file for writing.\n", ErrorCode);
+
+        return false;
     }
 
-    return Node;
+    return true;
 }
 
-file* OpenForReadAndWrite(const char* Path, bool OverWrite)
+bool file::OpenForReadAndWrite(const char* Path, bool OverWrite)
 {
     DWORD DesiredAccess = GENERIC_WRITE | GENERIC_READ;
     DWORD ShareAccess = FILE_SHARE_READ | FILE_SHARE_DELETE;
@@ -397,19 +406,19 @@ file* OpenForReadAndWrite(const char* Path, bool OverWrite)
     DWORD CreateFlags = !OverWrite ? OPEN_EXISTING : TRUNCATE_EXISTING;
     DWORD AttributeFlags = FILE_ATTRIBUTE_NORMAL;
 
-    file* Node = Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags);
-
-    if(!Node)
+    if(!Open(Path, DesiredAccess, ShareAccess, CreateFlags, AttributeFlags))
     {
         DWORD ErrorCode = GetLastError();
 
         LogError("failed to open file for reading and writing.\n", ErrorCode);
+
+        return false;
     }
 
-    return Node;
+    return true;
 }
 
-void GetDirectoryContents(const char* Path, vector<file*>& Files)
+void file::GetDirectoryContents(const char* Path, vector<file*>& Files)
 {
     string _Path(Path);
 
@@ -439,10 +448,10 @@ void GetDirectoryContents(const char* Path, vector<file*>& Files)
             AbsPath.append("\\");
             AbsPath.append(Result.cFileName);
 
-            FileNode->_Name = Result.cFileName;
-            FileNode->_AbsPath = move(AbsPath);
+            Name = Result.cFileName;
+            AbsPath = move(AbsPath);
 
-            StatFile(FileNode);
+            StatFile();
 
             Files.push_back(FileNode);
 
@@ -473,29 +482,24 @@ void GetDirectoryContents(const char* Path, vector<file*>& Files)
     }
 }
 
-void CloseFile(file* File)
+void file::Close()
 {
-    if(!File)
+    if(Id)
     {
-        return;
+        CloseHandle(Id);
     }
-
-    CloseHandle(File->_Id);
-
-	delete File;
-    File = nullptr;
 }
 
-bool TryToSetASCII(file* File)
+bool file::TryToSetASCII()
 {
     // override EncodingAndBOMSet boolean 
     // to ensure its set initially
-    File->EncodingAndBOMSet = false;
+    EncodingAndBOMSet = false;
 
     bool Success = true;
     
-    const uint8_t* Bytes = (const uint8_t*) File->_Buffer.data();
-    size_t ByteCount = File->_Buffer.size();
+    const uint8_t* Bytes = (const uint8_t*) Buffer.data();
+    size_t ByteCount = Buffer.size();
 
     if(ByteCount > 0 && Bytes)
     {
@@ -511,7 +515,7 @@ bool TryToSetASCII(file* File)
 
     if(Success)
     {
-        File->Encoding = FileEncoding(ASCIIEncoding);
+        Encoding = FileEncoding(ASCIIEncoding);
 
         size_t HighNibbleByteCount = 0;
         size_t LowNibbleByteCount = 0;
@@ -538,25 +542,25 @@ bool TryToSetASCII(file* File)
 
         if(PercentHighNibble > PercentLowNibble)
         {
-            File->Endianness = FileEndianness(BigEndian);
+            Endianness = FileEndianness(BigEndian);
         }
         else
         {
-            File->Endianness = FileEndianness(LittleEndian);
+            Endianness = FileEndianness(LittleEndian);
         }
     }
 
     return Success;
 }
 
-bool TryToSetUTF8BOM(file* File)
+bool file::TryToSetUTF8BOM()
 {
     // override EncodingAndBOMSet boolean 
     // to ensure its set initially
-    File->EncodingAndBOMSet = false;
+    EncodingAndBOMSet = false;
 
-	const uint8_t* Bytes = (const uint8_t*) File->_Buffer.data();
-	size_t ByteCount = File->_Buffer.size();
+	const uint8_t* Bytes = (const uint8_t*)Buffer.data();
+	size_t ByteCount = Buffer.size();
 
 	if(ByteCount > 0 && Bytes)
 	{
@@ -571,33 +575,33 @@ bool TryToSetUTF8BOM(file* File)
 		// try to match bytes for utf16 big endian BOM
 		if((Bitmask & 0x00FFFFFF) ==  UTF8_BOM)
 		{
-			File->Encoding = FileEncoding(UTF8Encoding);
-            File->BOMEndianness = FileBOMEndianness(LittleEndian);
-		    File->Endianness = FileEndianness(Unknown);
+			Encoding = FileEncoding(UTF8Encoding);
+            BOMEndianness = FileBOMEndianness(LittleEndian);
+		    Endianness = FileEndianness(Unknown);
 
             // set object state flag
-    	    File->EncodingAndBOMSet = true;
+    	    EncodingAndBOMSet = true;
 		}
 	}
 
-    if(!File->EncodingAndBOMSet)
+    if(!EncodingAndBOMSet)
     {
-		File->Encoding = FileEncoding(UnknownEncoding);
-		File->BOMEndianness = FileBOMEndianness(Unknown);
-		File->Endianness = FileEndianness(Unknown);
+		Encoding = FileEncoding(UnknownEncoding);
+		BOMEndianness = FileBOMEndianness(Unknown);
+		Endianness = FileEndianness(Unknown);
     }
 
-    return File->EncodingAndBOMSet;
+    return EncodingAndBOMSet;
 }
 
-bool TryToSetUTF16BOM(file* File)
+bool file::TryToSetUTF16BOM()
 {
     // override EncodingAndBOMSet boolean 
     // to ensure its set initially
-    File->EncodingAndBOMSet = false;
+    EncodingAndBOMSet = false;
 
-	const uint8_t* Bytes = (const uint8_t*) File->_Buffer.data();
-	size_t ByteCount = File->_Buffer.size();
+	const uint8_t* Bytes = (const uint8_t*) Buffer.data();
+	size_t ByteCount = Buffer.size();
 
 	if(ByteCount > 0 && Bytes)
 	{
@@ -611,12 +615,12 @@ bool TryToSetUTF16BOM(file* File)
             // try to match bytes for utf16 big endian BOM
             if((Bitmask & 0xFFFF0000) ==  BIG_ENDIAN_UTF16_BOM)
             {
-                File->Encoding = FileEncoding(UTF16Encoding);
-                File->BOMEndianness = FileBOMEndianness(BigEndian);
-		        File->Endianness = FileEndianness(Unknown);
+                Encoding = FileEncoding(UTF16Encoding);
+                BOMEndianness = FileBOMEndianness(BigEndian);
+		        Endianness = FileEndianness(Unknown);
 
 				// set object state flag
-				File->EncodingAndBOMSet = true;
+				EncodingAndBOMSet = true;
             }
         }
         else if(LowByte32(Bitmask) > 0)
@@ -627,33 +631,33 @@ bool TryToSetUTF16BOM(file* File)
             // try to match bytes for utf16 little endian BOM
             if((Bitmask & 0x0000FFFF) == LITTLE_ENDIAN_UTF16_BOM)
             {
-                File->Encoding = FileEncoding(UTF16Encoding);
-                File->BOMEndianness = FileBOMEndianness(LittleEndian);
-		        File->Endianness = FileEndianness(Unknown);
+                Encoding = FileEncoding(UTF16Encoding);
+                BOMEndianness = FileBOMEndianness(LittleEndian);
+		        Endianness = FileEndianness(Unknown);
 
                 // set object state flag
-				File->EncodingAndBOMSet = true;
+				EncodingAndBOMSet = true;
             }
         }
     }
 
-    if(!File->EncodingAndBOMSet)
+    if(!EncodingAndBOMSet)
     {
-		File->Encoding = FileEncoding(UnknownEncoding);
-		File->BOMEndianness = FileBOMEndianness(Unknown);
-		File->Endianness = FileEndianness(Unknown);
+		Encoding = FileEncoding(UnknownEncoding);
+		BOMEndianness = FileBOMEndianness(Unknown);
+		Endianness = FileEndianness(Unknown);
     }
 
-    return File->EncodingAndBOMSet;
+    return EncodingAndBOMSet;
 }
 
-bool TryToSetBOMAndFileEncoding(file* File)
+bool file::TryToSetBOMAndFileEncoding()
 {
     // override EncodingAndBOMSet boolean 
     // to ensure its set initially
-    File->EncodingAndBOMSet = false;
+    EncodingAndBOMSet = false;
 
-    if(!File->EncodingAndBOMSet && TryToSetUTF8BOM(File))
+    if(!EncodingAndBOMSet && TryToSetUTF8BOM())
 	{
         // log successfull attempt to st BOM
         // and encoding
@@ -664,19 +668,7 @@ bool TryToSetBOMAndFileEncoding(file* File)
 		// set return state
     }
 
-    if(!File->EncodingAndBOMSet && TryToSetUTF16BOM(File))
-	{
-        // log successfull attempt to st BOM
-        // and encoding
-	}
-    else
-    {
-        // log failed attempt to set utf8 bom
-		// set return state
-		// Success = false;
-    }
-
-    if(!File->EncodingAndBOMSet && TryToSetASCII(File))
+    if(!EncodingAndBOMSet && TryToSetUTF16BOM())
 	{
         // log successfull attempt to st BOM
         // and encoding
@@ -688,5 +680,17 @@ bool TryToSetBOMAndFileEncoding(file* File)
 		// Success = false;
     }
 
-    return File->EncodingAndBOMSet;
+    if(!EncodingAndBOMSet && TryToSetASCII())
+	{
+        // log successfull attempt to st BOM
+        // and encoding
+	}
+    else
+    {
+        // log failed attempt to set utf8 bom
+		// set return state
+		// Success = false;
+    }
+
+    return EncodingAndBOMSet;
 }

@@ -22,16 +22,15 @@ struct xml_markup_attribute
 {
 	string Name;
 	string Value;
+
+	static xml_markup_attribute* Create(const char* AttributeName)
+	{
+		return new xml_markup_attribute { AttributeName };
+	}
 };
 
-static xml_markup_attribute* CreateAttribute(const char* AttributeName)
-{
-	return new xml_markup_attribute { AttributeName };
-}
-
 /***
-***** MARKUP STRUCT
-*****
+***** MARKUP CLASS 
 ****/
 
 struct xml_markup
@@ -64,20 +63,5 @@ struct xml_markup
 							  size_t Length);
 
 };
-
-/***
-*** STATIC XML MARKUP DATA
-**/
-inline static const xml_markup* GetBuiltinMarkupTags()
-{
-	static xml_markup_attribute Attributes[]
-	{
-		xml_markup_attribute  { "version"    },
-		xml_markup_attribute  { "encoding"   },
-		xml_markup_attribute  { "standalone" },
-	};
-
-	return nullptr;
-}
 
 #endif

@@ -2,14 +2,14 @@
 
 xml_document::xml_document()
 {
-	FileHandle = nullptr;
+	File = nullptr;
 	RootMarkupNode = nullptr;
 	ParsedDeclarationMarkup = false;
 }
 
 xml_document::xml_document(const char* Path)
 {
-	FileHandle = nullptr;
+	File = nullptr;
 	RootMarkupNode = nullptr;
 	ParsedDeclarationMarkup = false;
 
@@ -27,10 +27,10 @@ xml_document::~xml_document()
 		Attributes[Index].shrink_to_fit();
 	}
 
-	if(FileHandle)
+	if(File)
 	{
-		CloseFile(FileHandle);
-		FileHandle = nullptr;
+		Close();
+		File = nullptr;
 	}
 }
 
@@ -38,9 +38,7 @@ bool xml_document::Open(const char* Path)
 {
 	bool OpenResult = false;
 
-	FileHandle = OpenForReading(Path);
-
-	if(FileHandle)
+	if(File->OpenForReading(Path))
 	{
 		OpenResult = true;
 	}
@@ -50,13 +48,18 @@ bool xml_document::Open(const char* Path)
 
 bool xml_document::IsOpen() const
 {
-	return FileHandle->_IsOpen;
+	return File->IsOpen;
 }
 
 void xml_document::Close()
 {
-	CloseFile(FileHandle);
-	FileHandle = nullptr;
+	if(File)
+	{
+		File->Close();
+
+		delete File;
+		File = nullptr;
+	}
 }
 
 xml_document* xml_document::CreateAndOpen(const char* Path)
@@ -103,6 +106,21 @@ void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, str
 	{
 		Attributes[XMLDocumentAttributeEnumIndex(Standalone)] = Value;
 	}
+}
+
+const char* xml_document::BeginText()
+{
+	return File->BeginBuffer();
+}
+
+const char* xml_document::EndText()
+{
+	return File->EndBuffer();
+}
+
+size_t xml_document::GetFileSize()
+{
+	return File->GetSizeOnDisk();
 }
 
 bool xml_document::ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribute)
