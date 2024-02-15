@@ -22,17 +22,10 @@ enum file_properties
 
 enum class file_encodings 
 {
-    ASCIIEncoding = 0,
-    UTF8Encoding = 1,
-    UTF16Encoding = 2,
-    UnknownEncoding = 3
-};
-
-enum class file_bom_endianness
-{
-    BigEndian = 0,
-    LittleEndian = 1,
-    Unknown = 2
+    ASCII = 0,
+    UTF8 = 1,
+    UTF16 = 2,
+    Unknown = 3
 };
 
 enum class file_endianness
@@ -101,7 +94,7 @@ private:
     file(file&& Rfile);
 
 private:
-    HANDLE Id;
+    HANDLE HandleId;
 
     DWORD DesiredAccess;
     DWORD ShareAccess;
@@ -109,9 +102,7 @@ private:
     DWORD AttributeFlags;
 
     file_encodings Encoding;
-    file_bom_endianness BOMEndianness;
     file_endianness Endianness;
-
     bool EncodingAndBOMSet;
 
     string AbsPath;

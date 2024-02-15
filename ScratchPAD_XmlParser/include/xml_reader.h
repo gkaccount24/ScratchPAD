@@ -42,8 +42,38 @@ struct xml_name_token
 **** VARIOUS XML READER MODES
 ***/
 
-struct xml_reader
+class xml_reader
 {
+
+public:
+	xml_reader(xml_document* XMLDoc);
+	~xml_reader();
+
+public:
+	bool Read();
+
+private:
+	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
+
+	bool TryToParseDocumentDeclarationMarkup();
+	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
+	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
+	bool TryToParseAttributeValue();
+
+	void PushMarkupAttribute(const char* AttributeName, size_t ByteCount);
+	void PushMarkup(const char* StartTag, const char* EndTag);
+	void PushMarkup(const char* NameToken, size_t Length);
+	void PopMarkup();
+
+	void RemoveWS();
+	bool IsWS();
+
+private:
+	xml_reader(const xml_reader& Rhs) = delete;
+	xml_reader(xml_reader&& Rhs) = delete;
+
+private:
+
 	// the current document were 
 	// suppose to be reading
 	xml_document* Doc;
@@ -73,30 +103,6 @@ struct xml_reader
 	vector<xml_name_token*> NameTokenStack;
 	vector<xml_markup*> MarkupStack;
 	vector<xml_markup_attribute*> MarkupAttributeStack;
-
-	xml_reader(xml_document* XMLDoc);
-	~xml_reader();
-
-	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
-
-	bool TryToParseDocumentDeclarationMarkup();
-	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
-	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
-	bool TryToParseAttributeValue();
-
-	void PushMarkupAttribute(const char* AttributeName, size_t ByteCount);
-	void PushMarkup(const char* StartTag, const char* EndTag);
-	void PushMarkup(const char* NameToken, size_t Length);
-	void PopMarkup();
-
-	void RemoveWS();
-	bool IsWS();
-
-	bool Read();
-
-private:
-	xml_reader(const xml_reader& Rhs) = delete;
-	xml_reader(xml_reader&& Rhs) = delete;
 
 };
 

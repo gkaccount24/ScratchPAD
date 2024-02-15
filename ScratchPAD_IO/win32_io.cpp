@@ -100,6 +100,43 @@ static void LogError(const char* Message, DWORD ErrorCode)
     ConsoleError(ErrorMessage.c_str());
 }
 
+file::file():
+    HandleId(nullptr),
+    DesiredAccess(0),
+    ShareAccess(0),
+    CreateFlags(0),
+    AttributeFlags(0),
+    Encoding(FileEncoding(Unknown)),
+    Endianness(FileEndianness(Unknown)),
+    EncodingAndBOMSet(false),
+
+    // empty strings
+    AbsPath(""),
+    Name(""),
+    
+    // empty buffer
+    Buffer(""),
+    SizeOnDisk(0),
+
+    IsDir(false),
+    IsSync(false),
+    IsOpen(false),
+    IsLoaded(false),
+    Stat(WIN32_FILE_ATTRIBUTE_DATA { })
+{
+
+}
+
+file::~file()
+{
+
+    if(HandleId)
+    {
+
+    }
+
+}
+
 void file::StatFile()
 {
     GET_FILEEX_INFO_LEVELS RequestedFileInfo = GetFileExInfoStandard;
@@ -163,7 +200,7 @@ size_t file::GetSizeOnDisk()
 
     LARGE_INTEGER Tmp = { };
 
-    Result = GetFileSizeEx(Id, &Tmp);
+    Result = GetFileSizeEx(HandleId, &Tmp);
 
     if(Result == 0)
     {
@@ -201,7 +238,7 @@ bool file::SyncInternalBufferWithDisk()
             DWORD BytesRead = 0;
             DWORD Result = 0;
 
-            Result = ReadFile(Id, Buffer.data(), BufferSize, &BytesRead, 0);
+            Result = ReadFile(HandleId, Buffer.data(), BufferSize, &BytesRead, 0);
 
             if(Result > 0 && BytesRead == BufferSize)
             {
@@ -275,8 +312,6 @@ bool file::Open(const char* Path,
                 DWORD AttributeFlags, 
                 LPSECURITY_ATTRIBUTES Security)
 {
-    file* Node = nullptr;
-
     HANDLE FileHandle = nullptr;
 
     FileHandle = CreateFileA(Path, DesiredAccess, ShareAccess, Security, CreateFlags, AttributeFlags, 0);
@@ -286,54 +321,50 @@ bool file::Open(const char* Path,
         DWORD ErrorCode = GetLastError();
 
         LogError("CreateFile() failed.\n", ErrorCode);
-    }
-    else
-    {
-        Node = new file { };
 
-        Id = FileHandle;
-
-        DesiredAccess = DesiredAccess;
-        ShareAccess = ShareAccess;
-        CreateFlags = CreateFlags;
-        AttributeFlags = AttributeFlags;
-
-        AbsPath = Path;
-
-        ParseFilename();
-
-        SizeOnDisk = GetSizeOnDisk();
-
-        IsDir = false;
-        IsOpen = true;
-
-        IsSync = false;
-        IsLoaded = false;
-
-        if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk())
-        {
-            delete Node;
-            Node = nullptr;
-
-            LogError("failed to sync node.\n", -1);
-        }
-        else
-        {
-			if(!TryToSetBOMAndFileEncoding())
-			{
-				// log failed attempt to detect/set bom 
-				// and file encoding/endianness
-
-			}
-			else
-			{
-				// log successful attempt to detect/set bom 
-				// and file encoding/endianness
-			}
-        }
+        return false;
     }
 
-    return Node;
+	HandleId = FileHandle;
+
+	DesiredAccess = DesiredAccess;
+	ShareAccess = ShareAccess;
+	CreateFlags = CreateFlags;
+	AttributeFlags = AttributeFlags;
+
+	AbsPath = Path;
+
+	ParseFilename();
+    StatFile();
+
+	// SizeOnDisk = GetSizeOnDisk();
+
+	IsDir = false;
+	IsOpen = true;
+
+	IsSync = false;
+	IsLoaded = false;
+
+	if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk())
+	{
+		LogError("failed to sync node.\n", -1);
+
+        return false;
+	}
+	else
+	{
+		if(!TryToSetBOMAndFileEncoding())
+		{
+			// log failed attempt to detect/set bom 
+			// and file encoding/endianness
+
+		}
+		else
+		{
+			// log successful attempt to detect/set bom 
+			// and file encoding/endianness
+		}
+	}
 }
 
 bool file::Create(const char* Path, bool OverWrite)

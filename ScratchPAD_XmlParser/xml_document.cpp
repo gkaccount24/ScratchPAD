@@ -1,18 +1,17 @@
 #include "./include/xml_document.h"
 
-xml_document::xml_document()
+xml_document::xml_document():
+	Markup(nullptr),
+	ParsedDecl(false),
+	File(nullptr)
 {
-	File = nullptr;
-	RootMarkupNode = nullptr;
-	ParsedDeclarationMarkup = false;
 }
 
-xml_document::xml_document(const char* Path)
+xml_document::xml_document(const char* Path):
+	Markup(nullptr),
+	ParsedDecl(false),
+	File(nullptr)
 {
-	File = nullptr;
-	RootMarkupNode = nullptr;
-	ParsedDeclarationMarkup = false;
-
 	if(!Open(Path))
 	{
 		// 
@@ -29,21 +28,27 @@ xml_document::~xml_document()
 
 	if(File)
 	{
-		Close();
+		File->Close();
+
+		delete File;
 		File = nullptr;
 	}
 }
 
 bool xml_document::Open(const char* Path)
 {
-	bool OpenResult = false;
-
-	if(File->OpenForReading(Path))
+	if(!File)
 	{
-		OpenResult = true;
+		// File = new file()
+
 	}
 
-	return OpenResult;
+	if(File && !File->IsOpen)
+	{
+		return false;
+	}
+
+	return File->OpenForReading(Path);
 }
 
 bool xml_document::IsOpen() const

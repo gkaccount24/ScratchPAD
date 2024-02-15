@@ -42,18 +42,17 @@ public:
 	static xml_document* Create(const char* Path);
 
 private:
-	string Attributes[XMLDocumentAttributeEnumIndex(Count)];
-	xml_markup* RootMarkupNode;
+	string		Attributes[XMLDocumentAttributeEnumIndex(Count)];
+	xml_markup* Markup;
 
 public:
+	bool  ParsedDecl;
 	file* File;
-	bool ParsedDeclarationMarkup;
 
 private:
 	xml_document(const xml_document& Rhs) = delete;
 	xml_document(xml_document&& Rhs) = delete;
-};
 
-#define XMLDocumentBuffer(XMLDoc)(XMLDoc->FileHandle->_Buffer)
+};
 
 #endif
