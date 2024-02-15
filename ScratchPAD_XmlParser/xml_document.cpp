@@ -10,11 +10,12 @@ xml_document::xml_document():
 xml_document::xml_document(const char* Path):
 	Markup(nullptr),
 	ParsedDecl(false),
-	File(nullptr)
+	File(new file(Path))
 {
 	if(!Open(Path))
 	{
-		// 
+		// log & report error
+		// set bad state flags
 	}
 }
 
@@ -43,7 +44,7 @@ bool xml_document::Open(const char* Path)
 
 	}
 
-	if(File && !File->IsOpen)
+	if(!File->IsOpen)
 	{
 		return false;
 	}
