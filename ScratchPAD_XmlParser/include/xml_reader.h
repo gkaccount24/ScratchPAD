@@ -61,9 +61,10 @@ struct xml_reader
 
 	// Position and Buffer size
 	size_t WSSkipped;
+
+	size_t BytesAvailable;
 	size_t BufferPos;
 	size_t BufferSize;
-	size_t BytesAvailable;
 
 	// Reading State flags
 	bool EndOfBuffer;

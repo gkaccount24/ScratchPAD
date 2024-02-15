@@ -18,9 +18,6 @@ enum class xml_builtin_markup_tags
 	Count					 = 5
 };
 
-#define BuiltinMarkupTagTypeEnum(MarkupTag)(xml_builtin_markup_tags::MarkupTag)
-#define BuiltinMarkupTagIndex(MarkupTag)((int) MarkupTag)
-
 struct xml_markup_attribute
 {
 	string Name;
@@ -31,10 +28,6 @@ static xml_markup_attribute* CreateAttribute(const char* AttributeName)
 {
 	return new xml_markup_attribute { AttributeName };
 }
-
-#define MarkupAttributeEnum(Attribute)(xml_builtin_markup_tag_attributes::Attribute)
-#define MarkupAttributeIndex(Attribute)((int) MarkupAttributeEnum(Attribute))
-#define MarkupAttribute(MarkupTag, Attribute)(BuiltinMarkupTag(MarkupTag)->Attributes[BuiltinMarkupTagAttributeIndex(Attribute)])
 
 /***
 ***** MARKUP STRUCT

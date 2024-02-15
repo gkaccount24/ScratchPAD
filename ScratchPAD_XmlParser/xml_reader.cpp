@@ -134,8 +134,8 @@ bool xml_reader::BytesMatch(const char* SrcBytes, size_t ByteCount)
 	}
 	else
 	{
-		// error, lexeme immediatelly
-		// following our tag has to be ws
+		SelectedByteMirror = SelectedByte;
+
 		return false;
 	}
 }
@@ -419,27 +419,34 @@ bool xml_reader::Read()
 		{
 			if(Extract(SelectedByte) == '<')
 			{
+				bool MatchedEndTag = false;
+
 				if(!MarkupStack.empty())
 				{
 					xml_markup* MarkupNode = MarkupStack.back();
+
+					// empty character data buffer
+					if(!CharDataBuf.empty())
+					{
+						xml_markup* MarkupNode = MarkupStack.back();
+
+						MarkupNode->Text = move(CharDataBuf);
+
+						CharDataBuf.clear();
+					}
 
 					if(BytesMatch(MarkupNode->EndTag.c_str(), 
 								  MarkupNode->EndTag.size()))
 					{
 						// matched end tag
 						// pop markup node stack
+						MatchedEndTag = true;
 
 						MarkupStack.pop_back();
 					}
-					else if(!CharDataBuf.empty())
-					{
-						MarkupNode->Text = move(CharDataBuf);
-
-						CharDataBuf.clear();
-					}
 				}
 
-				if(!TryToParseNameToken('>'))
+				if(!MatchedEndTag && !TryToParseNameToken('>'))
 				{
 					PushMarkup(NameTokenStack.back()->Name.c_str(),
 							   NameTokenStack.back()->Name.size());
@@ -482,7 +489,7 @@ bool xml_reader::Read()
 
 					RemoveWS();
 				}
-				else
+				else if(!MatchedEndTag)
 				{
 					if(!NameTokenStack.empty())
 					{
