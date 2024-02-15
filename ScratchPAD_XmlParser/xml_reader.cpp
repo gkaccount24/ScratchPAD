@@ -438,11 +438,11 @@ bool xml_reader::Read()
 					if(BytesMatch(MarkupNode->EndTag.c_str(), 
 								  MarkupNode->EndTag.size()))
 					{
-						// matched end tag
-						// pop markup node stack
 						MatchedEndTag = true;
 
 						MarkupStack.pop_back();
+
+						RemoveWS();
 					}
 				}
 
@@ -512,6 +512,9 @@ bool xml_reader::Read()
 				BytesAvailable--;
 			}
 		}
+
+		std::cout << "wait here";
+		std::cin.get();
 	}
 
 	return EndOfBuffer;
