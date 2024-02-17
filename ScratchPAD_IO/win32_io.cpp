@@ -127,14 +127,57 @@ file::file():
 
 }
 
+file::file(const char* Path):
+    HandleId(nullptr),
+    DesiredAccess(0),
+    ShareAccess(0),
+    CreateFlags(0),
+    AttributeFlags(0),
+    Encoding(FileEncoding(Unknown)),
+    Endianness(FileEndianness(Unknown)),
+    EncodingAndBOMSet(false),
+
+    // empty strings
+    AbsPath(""),
+    Name(""),
+    
+    // empty buffer
+    Buffer(""),
+    SizeOnDisk(0),
+
+    IsDir(false),
+    IsSync(false),
+    IsOpen(false),
+    IsLoaded(false),
+    Stat(WIN32_FILE_ATTRIBUTE_DATA { })
+
+{
+    if(!OpenForReading(Path))
+    {
+        // log & report error
+        // set bad state;
+    }
+}
+
 file::~file()
 {
-
     if(HandleId)
     {
-
+        CloseHandle(HandleId);
+        HandleId = nullptr;
     }
 
+    Buffer.clear();
+    Buffer.shrink_to_fit();
+
+    SizeOnDisk = 0;
+
+    IsDir = false;
+    IsSync = false;
+    IsLoaded = false;
+    IsOpen = false;
+
+    Stat = { };
 }
 
 void file::StatFile()
@@ -351,20 +394,8 @@ bool file::Open(const char* Path,
 
         return false;
 	}
-	else
-	{
-		if(!TryToSetBOMAndFileEncoding())
-		{
-			// log failed attempt to detect/set bom 
-			// and file encoding/endianness
 
-		}
-		else
-		{
-			// log successful attempt to detect/set bom 
-			// and file encoding/endianness
-		}
-	}
+    return true;
 }
 
 bool file::Create(const char* Path, bool OverWrite)
@@ -472,7 +503,7 @@ void file::GetDirectoryContents(const char* Path, vector<file*>& Files)
 
         while(DirHandle)
         {
-            file* FileNode = new file { };
+            file* FileNode = new file();
 
             string AbsPath(Path);
 
@@ -515,10 +546,23 @@ void file::GetDirectoryContents(const char* Path, vector<file*>& Files)
 
 void file::Close()
 {
-    if(Id)
+    if(HandleId)
     {
-        CloseHandle(Id);
+        CloseHandle(HandleId);
+        HandleId = nullptr;
     }
+
+    Name.clear();
+    Name.shrink_to_fit();
+
+    Buffer.clear();
+    Buffer.shrink_to_fit();
+
+    IsDir = false;
+	IsOpen = true;
+
+	IsSync = false;
+	IsLoaded = false;
 }
 
 bool file::TryToSetASCII()
@@ -546,7 +590,7 @@ bool file::TryToSetASCII()
 
     if(Success)
     {
-        Encoding = FileEncoding(ASCIIEncoding);
+        Encoding = FileEncoding(ASCII);
 
         size_t HighNibbleByteCount = 0;
         size_t LowNibbleByteCount = 0;
@@ -606,8 +650,7 @@ bool file::TryToSetUTF8BOM()
 		// try to match bytes for utf16 big endian BOM
 		if((Bitmask & 0x00FFFFFF) ==  UTF8_BOM)
 		{
-			Encoding = FileEncoding(UTF8Encoding);
-            BOMEndianness = FileBOMEndianness(LittleEndian);
+			Encoding = FileEncoding(UTF8);
 		    Endianness = FileEndianness(Unknown);
 
             // set object state flag
@@ -617,8 +660,7 @@ bool file::TryToSetUTF8BOM()
 
     if(!EncodingAndBOMSet)
     {
-		Encoding = FileEncoding(UnknownEncoding);
-		BOMEndianness = FileBOMEndianness(Unknown);
+		Encoding = FileEncoding(Unknown);
 		Endianness = FileEndianness(Unknown);
     }
 
@@ -646,8 +688,7 @@ bool file::TryToSetUTF16BOM()
             // try to match bytes for utf16 big endian BOM
             if((Bitmask & 0xFFFF0000) ==  BIG_ENDIAN_UTF16_BOM)
             {
-                Encoding = FileEncoding(UTF16Encoding);
-                BOMEndianness = FileBOMEndianness(BigEndian);
+                Encoding = FileEncoding(UTF16);
 		        Endianness = FileEndianness(Unknown);
 
 				// set object state flag
@@ -662,8 +703,7 @@ bool file::TryToSetUTF16BOM()
             // try to match bytes for utf16 little endian BOM
             if((Bitmask & 0x0000FFFF) == LITTLE_ENDIAN_UTF16_BOM)
             {
-                Encoding = FileEncoding(UTF16Encoding);
-                BOMEndianness = FileBOMEndianness(LittleEndian);
+                Encoding = FileEncoding(UTF16);
 		        Endianness = FileEndianness(Unknown);
 
                 // set object state flag
@@ -674,8 +714,7 @@ bool file::TryToSetUTF16BOM()
 
     if(!EncodingAndBOMSet)
     {
-		Encoding = FileEncoding(UnknownEncoding);
-		BOMEndianness = FileBOMEndianness(Unknown);
+		Encoding = FileEncoding(Unknown);
 		Endianness = FileEndianness(Unknown);
     }
 
@@ -724,4 +763,163 @@ bool file::TryToSetBOMAndFileEncoding()
     }
 
     return EncodingAndBOMSet;
+}
+
+stream_io::stream_io(HANDLE StdHandle):
+    Type(stream_io_type::ConsoleIO),
+    BufferSize(0)
+{
+    Data.Handle = StdHandle;
+}
+
+stream_io::stream_io(file* File):
+    Type(stream_io_type::FileIO),
+    BufferSize(0)
+{
+    Data.File = File;
+}
+
+stream_io::~stream_io()
+{
+    switch(Type)
+    {
+        case stream_io_type::FileIO:
+        {
+            if(Data.File)
+            {
+                delete Data.File;
+                Data.File = nullptr;
+            }
+
+            break;
+        }
+        case stream_io_type::BufferIO:
+        {
+            if(Data.Buffer)
+            {
+                delete Data.Buffer;
+                Data.Buffer = nullptr;
+            }
+
+            break;
+        }
+        case stream_io_type::ConsoleIO:
+        {
+            if(Data.Handle)
+            {
+                CloseHandle(Data.Handle);
+                Data.Handle = nullptr;
+            }
+
+            break;
+        }
+    }
+}
+
+void stream_io::Write(const char* Bytes, size_t Count)
+{
+    switch(Type)
+    {
+        case stream_io_type::FileIO:
+        {
+            break;
+        }
+        case stream_io_type::BufferIO:
+        {
+            if(Data.Buffer)
+            {
+                // write to buffer
+                // update buffersize
+            }
+
+            break;
+        }
+        case stream_io_type::ConsoleIO:
+        {
+            if(Data.Handle)
+            {
+                DWORD BytesWritten = 0;
+
+                if(WriteConsole(Data.Handle, Bytes, Count, &BytesWritten, 0) != 0)
+                {
+                    // handle write error?
+                    // record write error?
+                }
+            }
+
+            break;
+        }
+    }
+}
+
+size_t stream_io::Read(char* ReceiveBuf, size_t Count)
+{
+    return 0;
+}
+
+logger::logger():
+    IO(new stream_io(GetStdHandle(STD_OUTPUT_HANDLE)))
+{
+
+}
+
+logger::logger(file* File):
+    IO(new stream_io(File))
+{
+    assert(File);
+}
+
+logger::logger(stream_io* LoggerIO):
+    IO(LoggerIO)
+{
+    assert(IO);
+}
+
+logger::~logger()
+{
+    if(IO)
+    {
+        delete IO;
+        IO = nullptr;
+    }
+}
+
+void logger::ConsoleInfo(const char* Message)
+{
+    string Prefix("[INFO] ");
+
+    string MessageWrapper(Prefix);
+    MessageWrapper.append(Message);
+
+    IO->Write(MessageWrapper.c_str(), MessageWrapper.size());
+}
+
+void logger::ConsoleNotice(const char* Message)
+{
+    string Prefix("[NOTICE] ");
+
+    string MessageWrapper(Prefix);
+    MessageWrapper.append(Message);
+
+    IO->Write(MessageWrapper.c_str(), MessageWrapper.size());
+}
+
+void logger::ConsoleWarning(const char* Message)
+{
+    string Prefix("[WARNING] ");
+
+    string MessageWrapper(Prefix);
+    MessageWrapper.append(Message);
+
+    IO->Write(MessageWrapper.c_str(), MessageWrapper.size());
+}
+
+void logger::ConsoleError(const char* Message)
+{
+    string Prefix("[ERROR] ");
+
+    string MessageWrapper(Prefix);
+    MessageWrapper.append(Message);
+
+    IO->Write(MessageWrapper.c_str(), MessageWrapper.size());
 }

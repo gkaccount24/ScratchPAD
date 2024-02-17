@@ -52,6 +52,9 @@ public:
 public:
 	bool Read();
 
+public:
+	void AttachLogger(logger* Logger);
+
 private:
 	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
@@ -67,6 +70,12 @@ private:
 
 	void RemoveWS();
 	bool IsWS();
+
+private:
+	void OutputInfo(const char* Message);
+	void OutputNotice(const char* Message);
+	void OutputWarning(const char* Message);
+	void OutputError(const char* Message);
 
 private:
 	xml_reader(const xml_reader& Rhs) = delete;
@@ -104,6 +113,8 @@ private:
 	vector<xml_markup*> MarkupStack;
 	vector<xml_markup_attribute*> MarkupAttributeStack;
 
+	bool LoggingEnabled;
+	logger* Logger;
 };
 
 #endif

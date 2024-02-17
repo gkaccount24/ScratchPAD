@@ -112,6 +112,8 @@ int main(int ArgCount, char* ArgV[])
 {
 	exit_code ExitCode = Success;
 
+	logger* Logger = new logger();
+
 	xml_document* XMLDoc = nullptr;
 
 	XMLDoc = xml_document::CreateAndOpen("Z:\\data\\xml samples\\books.xml");
@@ -124,6 +126,8 @@ int main(int ArgCount, char* ArgV[])
 	{
 		xml_reader Reader(XMLDoc);
 
+		Reader.AttachLogger(Logger);
+
 		if(!Reader.Read())
 		{
 			ExitCode = FailedToReadDoc;
@@ -133,6 +137,12 @@ int main(int ArgCount, char* ArgV[])
 			// do stuff with the xml doc
 
 		}
+	}
+
+	if(Logger)
+	{
+		delete Logger;
+		Logger = nullptr;
 	}
 
 	return ExitCode;

@@ -16,7 +16,9 @@ xml_reader::xml_reader(xml_document* XMLDoc):
 	BufferPos(0), BufferBegin(nullptr),
 	BufferEnd(nullptr), BytesAvailable(0),
 	SelectedByte(nullptr), SelectedByteMirror(nullptr),
-	EndOfBuffer(false), WSSkipped(0)
+	EndOfBuffer(false), WSSkipped(0),
+	LoggingEnabled(true), Logger(nullptr)
+
 {
 	if(XMLDoc && XMLDoc->IsOpen())
 	{
@@ -145,44 +147,55 @@ bool xml_reader::TryToParseAttributeValue()
 	assert(!MarkupStack.empty());
 
 	bool Parsed = false;
-
 	size_t TempByteCount = 0;
-
 	size_t StringByteCount = 0;
 	const char* StringText = 0;
 
-	if(Extract(SelectedByteMirror) == '\"')
-	{		
-		SelectedByteMirror++;
-		TempByteCount++;
+	if(Extract(SelectedByteMirror) != '\"')
+	{
+		OutputError("expected '\"'\r\n");
 
-		StringText = SelectedByteMirror;
-		
-		while(SelectedByteMirror != BufferEnd)
+		return false;
+	}
+
+	SelectedByteMirror++;
+	TempByteCount++;
+
+	StringText = SelectedByteMirror;
+	
+	while(SelectedByteMirror != BufferEnd)
+	{
+		if(Extract(SelectedByteMirror) == '\"')
 		{
-			if(Extract(SelectedByteMirror) == '\"')
-			{
-				SelectedByteMirror++;
-				TempByteCount++;
-
-				Parsed = true;
-				break;
-			}
-
 			SelectedByteMirror++;
 			TempByteCount++;
-			StringByteCount++;
-		}
 
-		if(Parsed)
+			Parsed = true;
+			break;
+		}
+		else if(Extract(SelectedByteMirror) == '<')
 		{
-			MarkupAttributeStack.back()->Value.insert(0, StringText, StringByteCount);
+			// illegal character encountered
+			OutputError("illegal character encountered '<'\r\n");
 
-			SelectedByte = SelectedByteMirror;
-			BufferPos += TempByteCount;
-			BytesAvailable -= TempByteCount;
+			break;
 		}
+
+		SelectedByteMirror++;
+		TempByteCount++;
+		StringByteCount++;
 	}
+
+	if(!Parsed)
+	{
+		return false;
+	}
+
+	MarkupAttributeStack.back()->Value.insert(0, StringText, StringByteCount);
+
+	SelectedByte = SelectedByteMirror;
+	BufferPos += TempByteCount;
+	BytesAvailable -= TempByteCount;
 
 	return Parsed;
 }
@@ -191,8 +204,8 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 {
 	if(!BytesMatch(AttributeName, ByteCount))
 	{
-		// lexing error encountered
-		// report error & return;
+		OutputError("failed to match attribute name\r\n");
+
 		return false;
 	}
 
@@ -202,8 +215,8 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 
 	if(Extract(SelectedByteMirror) != '=')
 	{
-		// lexing error encountered
-		// report error & return;
+		OutputError("expected '='\r\n");
+
 		return false;
 	}
 	
@@ -213,6 +226,8 @@ bool xml_reader::TryToParseAttribute(const char* AttributeName, size_t ByteCount
 
 	if(!TryToParseAttributeValue())
 	{
+		OutputError("failed to parse attribute value\r\n");
+
 		return false;
 	}
 
@@ -269,8 +284,8 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 
 	if(!BytesMatch(StartTag.c_str(), StartTag.size()))
 	{
-		// lexing error encountered
-		// report error & return;
+		OutputNotice("no xml declaration found.\r\n");
+
 		return false;
 	}
 
@@ -280,8 +295,8 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 	// opening tag
 	if(!IsWS())
 	{
-		// lexing error encountered
-		// report error & return;
+		OutputError("expected ' '");
+
 		return false;
 	}
 
@@ -302,6 +317,8 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 		if(!TryToParseAttribute(Attributes[Index].c_str(), 
 								Attributes[Index].size()))
 		{
+			OutputError("failed to parse xml attribute\r\n");
+
 			ParsedDeclMarkup = false;
 			break;
 		}
@@ -309,6 +326,8 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 		// check for required space
 		if(!IsWS() && Attributes[Index] != "standalone")
 		{
+			OutputError("expected ' '\r\n");
+
 			ParsedDeclMarkup = false;
 			break;
 		}
@@ -318,21 +337,30 @@ bool xml_reader::TryToParseDocumentDeclarationMarkup()
 		RemoveWS();
 	}
 
-	if(Doc->ParsedDeclarationMarkup)
+	if(ParsedDeclMarkup)
 	{
 		if(!BytesMatch(EndTag.c_str(), EndTag.size()))
 		{
-			Doc->ParsedDeclarationMarkup = false;
+			OutputError("failed to match xml declaration end tag\r\n");
 
-			return Doc->ParsedDeclarationMarkup;
+			Doc->ParsedDecl = false;
+
+			return Doc->ParsedDecl;
 		}
 
 		RemoveWS();
 
-		return Doc->ParsedDeclarationMarkup;
+		Doc->ParsedDecl = true;
+
+		return Doc->ParsedDecl;
 	}
 
-	return Doc->ParsedDeclarationMarkup;
+
+	OutputError("failed to parse xml declaration\r\n");
+
+	Doc->ParsedDecl = false;
+
+	return false;
 }
 
 bool xml_reader::TryToParseNameToken(char Delimiter, bool EatInitialByte)
@@ -395,118 +423,172 @@ bool xml_reader::TryToParseNameToken(char Delimiter, bool EatInitialByte)
 
 bool xml_reader::Read()
 {
-	if(Doc && Doc->IsOpen())
+	if(Doc && !Doc->IsOpen())
 	{
-		if(!Doc->ParsedDeclaration())
+		OutputError("xml document file is not open for reading. \r\n");
+
+		return false;
+	}
+
+	if(!Doc->ParsedDeclaration())
+	{
+		if(!TryToParseDocumentDeclarationMarkup())
 		{
-			if(!TryToParseDocumentDeclarationMarkup())
-			{
-				// log and 
-				// report error
-				return false;
-			}
+			OutputNotice("failed to parse xml declaration\r\n");
 		}
+	}
 
-		bool Error = false;
+	bool Error = false;
 
-		while(SelectedByte != BufferEnd && !Error)
+	while(SelectedByte != BufferEnd && !Error)
+	{
+		if(Extract(SelectedByte) == '<')
 		{
-			if(Extract(SelectedByte) == '<')
-			{
-				bool MatchedEndTag = false;
+			bool MatchedEndTag = false;
 
-				if(!MarkupStack.empty())
+			if(!MarkupStack.empty())
+			{
+				xml_markup* MarkupNode = MarkupStack.back();
+
+				// empty character data buffer
+				if(!CharDataBuf.empty())
 				{
 					xml_markup* MarkupNode = MarkupStack.back();
 
-					// empty character data buffer
-					if(!CharDataBuf.empty())
-					{
-						xml_markup* MarkupNode = MarkupStack.back();
+					MarkupNode->Text = move(CharDataBuf);
 
-						MarkupNode->Text = move(CharDataBuf);
-
-						CharDataBuf.clear();
-					}
-
-					if(BytesMatch(MarkupNode->EndTag.c_str(), 
-								  MarkupNode->EndTag.size()))
-					{
-						MatchedEndTag = true;
-
-						MarkupStack.pop_back();
-
-						RemoveWS();
-					}
+					CharDataBuf.clear();
 				}
 
-				if(!MatchedEndTag && !TryToParseNameToken('>'))
+				if(BytesMatch(MarkupNode->EndTag.c_str(), 
+							  MarkupNode->EndTag.size()))
 				{
-					PushMarkup(NameTokenStack.back()->Name.c_str(),
-							   NameTokenStack.back()->Name.size());
+					MatchedEndTag = true;
 
-					while(Extract(SelectedByteMirror) != '>' && TryToParseNameToken('=', false))
-					{
-						// parsed attribute assignment
-						PushMarkupAttribute(NameTokenStack.back()->Name.c_str(), 
-											NameTokenStack.back()->Name.size());
+					MarkupStack.pop_back();
 
-						if(!TryToParseAttributeValue())
-						{
-							Error = true;
+					RemoveWS();
+				}
+			}
 
-							break;
-						}
+			if(!MatchedEndTag && !TryToParseNameToken('>'))
+			{
+				PushMarkup(NameTokenStack.back()->Name.c_str(),
+						   NameTokenStack.back()->Name.size());
 
-						if(!IsWS() && Extract(SelectedByteMirror) != '>')
-						{
-							Error = true;
+				while(Extract(SelectedByteMirror) != '>' && TryToParseNameToken('=', false))
+				{
+					// parsed attribute assignment
+					PushMarkupAttribute(NameTokenStack.back()->Name.c_str(), 
+										NameTokenStack.back()->Name.size());
 
-							break;
-						}
-
-						MarkupStack.back()->Attributes.push_back(MarkupAttributeStack.back());
-					}
-
-					if(Extract(SelectedByteMirror) != '>' && !Error)
+					if(!TryToParseAttributeValue())
 					{
 						Error = true;
+
+						OutputError("failed to parse xml attribute\r\n");
 
 						break;
 					}
 
-					SelectedByte++;
-					SelectedByteMirror++;
-
-					BufferPos++;
-					BytesAvailable--;
-
-					RemoveWS();
-				}
-				else if(!MatchedEndTag)
-				{
-					if(!NameTokenStack.empty())
+					if(!IsWS() && Extract(SelectedByteMirror) != '>')
 					{
-						PushMarkup(NameTokenStack.back()->Name.c_str(),
-								   NameTokenStack.back()->Name.size());
+						Error = true;
+
+						OutputError("expected '>' or ' '\r\n");
+
+						break;
 					}
 
-					RemoveWS();
+					MarkupStack.back()->Attributes.push_back(MarkupAttributeStack.back());
 				}
-			}
-			else if(Extract(SelectedByte) > 0 &&
-					Extract(SelectedByte) < 128)
-			{
-				CharDataBuf.push_back(Extract(SelectedByte));
+
+				if(Extract(SelectedByteMirror) != '>' && !Error)
+				{
+					Error = true;
+
+					OutputError("expected '>'\r\n");
+
+					break;
+				}
 
 				SelectedByte++;
 				SelectedByteMirror++;
 
 				BufferPos++;
 				BytesAvailable--;
+
+				RemoveWS();
 			}
+			else if(!MatchedEndTag)
+			{
+				if(NameTokenStack.empty())
+				{
+					// ERROR HANDLE IT ???
+					break;
+				}
+
+				PushMarkup(NameTokenStack.back()->Name.c_str(),
+						   NameTokenStack.back()->Name.size());
+				RemoveWS();
+			}
+
+
+		}
+		else if(Extract(SelectedByte) > 0 &&
+				Extract(SelectedByte) < 128)
+		{
+			CharDataBuf.push_back(Extract(SelectedByte));
+
+			SelectedByte++;
+			SelectedByteMirror++;
+
+			BufferPos++;
+			BytesAvailable--;
 		}
 	}
 
 	return EndOfBuffer;
+}
+
+void xml_reader::AttachLogger(logger* XMLReaderLogger)
+{
+	if(!Logger)
+	{
+		// log failure to set logger;
+	}
+
+	Logger = XMLReaderLogger;
+}
+
+void xml_reader::OutputInfo(const char* Message)
+{
+	if(Logger && LoggingEnabled)
+	{
+		Logger->ConsoleInfo(Message);
+	}
+}
+
+void xml_reader::OutputNotice(const char* Message)
+{
+	if(Logger && LoggingEnabled)
+	{
+		Logger->ConsoleNotice(Message);
+	}
+}
+
+void xml_reader::OutputWarning(const char* Message)
+{
+	if(Logger && LoggingEnabled)
+	{
+		Logger->ConsoleWarning(Message);
+	}
+}
+
+void xml_reader::OutputError(const char* Message)
+{
+	if(Logger && LoggingEnabled)
+	{
+		Logger->ConsoleError(Message);
+	}
 }

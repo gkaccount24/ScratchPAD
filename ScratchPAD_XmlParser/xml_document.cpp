@@ -3,14 +3,14 @@
 xml_document::xml_document():
 	Markup(nullptr),
 	ParsedDecl(false),
-	File(nullptr)
+	File(new file())
 {
 }
 
 xml_document::xml_document(const char* Path):
 	Markup(nullptr),
 	ParsedDecl(false),
-	File(new file(Path))
+	File(new file())
 {
 	if(!Open(Path))
 	{
@@ -38,18 +38,20 @@ xml_document::~xml_document()
 
 bool xml_document::Open(const char* Path)
 {
-	if(!File)
+	if(File)
 	{
-		// File = new file()
+		if(File->IsOpen)
+		{
+			return false;
+		}
 
+		return File->OpenForReading(Path);
 	}
 
-	if(!File->IsOpen)
-	{
-		return false;
-	}
-
-	return File->OpenForReading(Path);
+	// this shouldn't ever be the case
+	// because our constructor always
+	// allocates memory for a file obj
+	return false;
 }
 
 bool xml_document::IsOpen() const
@@ -136,5 +138,5 @@ bool xml_document::ParsedDeclarationAttribute(xml_builtin_doc_attributes Attribu
 
 bool xml_document::ParsedDeclaration()
 {
-	return ParsedDeclarationMarkup;
+	return ParsedDecl;
 }

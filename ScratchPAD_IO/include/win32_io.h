@@ -52,9 +52,13 @@ class file
 {
 
 public:
-     file() = default;
-    ~file() = default;
+    file();
+    file(const char* Path);
 
+public:
+    ~file();
+
+public:
     bool Open(const char* Path, DWORD DesiredAccess,
               DWORD ShareAccess, DWORD CreateFlags,
               DWORD AttributeFlags, LPSECURITY_ATTRIBUTES Security = 0);
@@ -121,8 +125,63 @@ public:
     WIN32_FILE_ATTRIBUTE_DATA Stat;
 };
 
-void ConsoleNotice(const char* Message);
-void ConsoleWarning(const char* Message);
-void ConsoleError(const char* Message);
+enum class stream_io_type
+{
+    BufferIO,
+    ConsoleIO,
+    FileIO
+};
+
+class stream_io
+{
+
+public:
+    stream_io(HANDLE IOStdHandle);
+    stream_io(file* File);
+
+public:
+    ~stream_io();
+
+public:
+    void Write(const char* Bytes, size_t Count);
+    size_t Read(char* ReceiveBuf, size_t Count);
+
+private:
+    stream_io_type Type;
+
+public:
+    size_t BufferSize;
+
+    union 
+    {
+        char* Buffer;
+        file* File;
+        HANDLE Handle;
+    } Data;
+};
+
+class logger 
+{
+
+public:
+    logger();
+
+public:
+    logger(file* File);
+    logger(stream_io* IO);
+
+public:
+    ~logger();
+
+public:
+	void ConsoleInfo(const char* Message);
+	void ConsoleNotice(const char* Message);
+	void ConsoleWarning(const char* Message);
+	void ConsoleError(const char* Message);
+
+private:
+    stream_io* IO;
+
+};
 
 #endif
