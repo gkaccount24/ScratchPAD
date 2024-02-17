@@ -24,15 +24,15 @@ namespace scratchpad
 	{
 
 	public:
-		stream_io(io_device& StreamIODevice);
+		stream_io(io_stringbuffer&& StreamBuffer);
 		~stream_io();
 
 	public:
-		void Write(const char* Bytes, size_t Count);
+		size_t Write(const char* Bytes, size_t Count);
 		size_t Read(char* ReceiveBuf, size_t Count);
 
 	private:
-		io_device& IODevice;
+		io_stringbuffer Buffer;
 
 	public:
 

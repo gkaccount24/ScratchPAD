@@ -2,7 +2,8 @@
 
 namespace scratchpad
 {
-	xml_source::xml_source(const char* Path)
+	xml_source::xml_source(const char* Path):
+		Buffer(io_filebuffer(Path))
 	{
 
 	}
@@ -12,7 +13,10 @@ namespace scratchpad
 		Buffer(move(RSource.Buffer))
 	{
 		RSource.DiskPath = nullptr;
-		RSource.Buffer.clear();
-		RSource.Buffer.shrink_to_fit();
+	}
+
+	xml_source::~xml_source()
+	{
+		DiskPath = nullptr;
 	}
 }

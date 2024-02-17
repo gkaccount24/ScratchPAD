@@ -28,57 +28,100 @@ namespace scratchpad
 		FileIO
 	};
 
-	class io_device
-	{
-	protected:
-				 io_device(io_device_type DeviceType);
-		virtual ~io_device();
-
-	public:
-		virtual void Write(const char* Bytes, size_t Count) = 0;
-		virtual size_t Read(char* ReceiveBuf, size_t Count) = 0;
-
-	protected:
-		io_device_type Type;
-
-	};
-
 	/***
 	**** IO_STRINGBUFFER
 	****/
 
-	class io_stringbuffer: public io_device
+	class io_stringbuffer
 	{
 	public:
-				 io_stringbuffer();
-				 io_stringbuffer(string StringBuffer);
+                 io_stringbuffer(io_stringbuffer&& StringBuffer);
+
+                 io_stringbuffer(string&& Buffer);
+                 io_stringbuffer(string Buffer);
+                 io_stringbuffer();
 		virtual ~io_stringbuffer();
 
-		virtual void Write(const char* Bytes, size_t Count);
-		virtual size_t Read(char* ReceiveBuf, size_t Count);
+		size_t Write(const char* Bytes, size_t Count);
+		size_t Read(char* ReceiveBuf, size_t Count);
 
-	private:
-		string Buffer;
-
+	public:
+		string Data;
 	};
 
 	/***
 	**** FILEBUF DEVICE
 	****/
 
-	class io_filebuffer: public io_device
+	class io_filebuffer: public io_stringbuffer
 	{
 	public:
-				 io_filebuffer(scratchpad::file& IOFile);
+				 io_filebuffer(io_filebuffer&& FileBuffer);
+				 io_filebuffer();
+				 io_filebuffer(const char* FileBufDiskPath);
 		virtual ~io_filebuffer();
 
-		virtual void Write(const char* Bytes, size_t Count);
+		virtual size_t Write(const char* Bytes, size_t Count);
 		virtual size_t Read(char* ReceiveBuf, size_t Count);
 
-	private:
-		scratchpad::file& File;
+		bool Open(const char* Path, DWORD DesiredAccess,
+                  DWORD ShareAccess, DWORD CreateFlags,
+                  DWORD AttributeFlags, LPSECURITY_ATTRIBUTES Security = 0);
 
-	};
+        bool OpenForReading(const char* Path);
+        bool OpenForWriting(const char* Path, bool OverWrite);
+        bool OpenForReadAndWrite(const char* Path, bool OverWrite);
+
+        bool Create(const char* Path, bool OverWrite);
+
+        void Close();
+
+    public:
+        const char* BeginBuffer();
+        const char* EndBuffer();
+
+    private:
+        bool TryToSetASCII();
+        bool TryToSetUTF8BOM();
+        bool TryToSetUTF16BOM();
+        bool TryToSetBOMAndFileEncoding();
+
+    public:
+        void GetDirectoryContents(const char* Path, vector<file*>& Files);
+
+    public:
+        void StatFile();
+
+        size_t GetSizeOnDisk();
+
+    private:
+        bool SyncInternalBufferWithDisk();
+        bool ParseFilename();
+
+	private:
+        HANDLE HandleId;
+
+        DWORD DesiredAccess;
+        DWORD ShareAccess;
+        DWORD CreateFlags;
+        DWORD AttributeFlags;
+
+        file_encodings Encoding;
+        file_endianness Endianness;
+        bool EncodingAndBOMSet;
+
+        string AbsPath;
+        string Name;
+
+    public:
+
+        bool IsDir;
+        bool IsSync;
+        bool IsOpen;
+        bool IsLoaded;
+
+        WIN32_FILE_ATTRIBUTE_DATA Stat;
+    };
 }
 
 #endif

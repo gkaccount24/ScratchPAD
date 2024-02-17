@@ -2,8 +2,10 @@
 #define XML_SOURCE_H
 
 /***
-*** MY INCLUDES
+*** SCRATCHPAD INCLUDES
 ***/
+
+#include "io_device.h"
 
 /***
 *** C++ INCLUDES
@@ -25,8 +27,8 @@ namespace scratchpad
 		~xml_source();
 
 	public:
-		const char* DiskPath;
-		string		Buffer;
+		const char*		 DiskPath;
+		io_stringbuffer& Buffer;
 	};
 }
 
