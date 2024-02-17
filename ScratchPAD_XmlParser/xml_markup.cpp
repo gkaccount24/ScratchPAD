@@ -1,87 +1,90 @@
 #include "./include/xml_markup.h"
 
-/****
-*****
-***** XML MARKUP HELPER MACROS
-*****
-*****/
-
-/***
-*** XML MARKUP 
-*** STATIC METHODS
-**/
-
-xml_markup* xml_markup::Create(const char* StartTag,
-							   const char* EndTag)
+namespace scratchpad
 {
-	return new xml_markup(StartTag, EndTag);
-}
+	/****
+	*****
+	***** XML MARKUP HELPER MACROS
+	*****
+	*****/
 
-xml_markup* xml_markup::Create(const char* NameToken, size_t Length)
-{
-	string Name(NameToken, Length);
+	/***
+	*** XML MARKUP
+	*** STATIC METHODS
+	**/
 
-	return new xml_markup(move(Name));
-}
-
-/***
-*** XML MARKUP CONSTRUCTORS
-**/
-
-xml_markup::xml_markup(const char* MarkupStartTag,
-					   const char* MarkupEndTag)
-{
-	StartTag = MarkupStartTag;
-	EndTag = MarkupEndTag;
-}
-
-xml_markup::xml_markup(string&& NameToken)
-{
-	string Name(move(NameToken));
-
-	string TempStartTag;
-	string TempEndTag;
-
-	TempStartTag.append("<");
-
-	if(!Name.empty())
+	xml_markup* xml_markup::Create(const char* StartTag,
+								   const char* EndTag)
 	{
-		TempStartTag.append(Name);
+		return new xml_markup(StartTag, EndTag);
 	}
 
-	TempStartTag.append(">");
-
-	TempEndTag.append("</");
-
-	if(!Name.empty())
+	xml_markup* xml_markup::Create(const char* NameToken, size_t Length)
 	{
-		TempEndTag.append(Name);
+		string Name(NameToken, Length);
+
+		return new xml_markup(move(Name));
 	}
 
-	TempEndTag.append(">");
+	/***
+	*** XML MARKUP CONSTRUCTORS
+	**/
 
-	StartTag = TempStartTag;
-	EndTag = TempEndTag;
-}
-
-xml_markup::~xml_markup()
-{
-	if(!Attributes.empty())
+	xml_markup::xml_markup(const char* MarkupStartTag,
+						   const char* MarkupEndTag)
 	{
-		Attributes.clear();
-		Attributes.shrink_to_fit();
+		StartTag = MarkupStartTag;
+		EndTag = MarkupEndTag;
 	}
 
-	if(!Children.empty())
+	xml_markup::xml_markup(string&& NameToken)
 	{
-		size_t ChildCount = Children.size();
+		string Name(move(NameToken));
 
-		for(size_t Index = 0; Index < ChildCount; Index++)
+		string TempStartTag;
+		string TempEndTag;
+
+		TempStartTag.append("<");
+
+		if(!Name.empty())
 		{
-			if(Children[Index])
+			TempStartTag.append(Name);
+		}
+
+		TempStartTag.append(">");
+
+		TempEndTag.append("</");
+
+		if(!Name.empty())
+		{
+			TempEndTag.append(Name);
+		}
+
+		TempEndTag.append(">");
+
+		StartTag = TempStartTag;
+		EndTag = TempEndTag;
+	}
+
+	xml_markup::~xml_markup()
+	{
+		if(!Attributes.empty())
+		{
+			Attributes.clear();
+			Attributes.shrink_to_fit();
+		}
+
+		if(!Children.empty())
+		{
+			size_t ChildCount = Children.size();
+
+			for(size_t Index = 0; Index < ChildCount; Index++)
 			{
-				delete Children[Index];
-				Children[Index] = nullptr;
+				if(Children[Index])
+				{
+					delete Children[Index];
+					Children[Index] = nullptr;
+				}
 			}
 		}
 	}

@@ -3,7 +3,33 @@
 
 #include "defs.h"
 
+/***
+*** C++ INCLUDES
+***/
+
 #include <string>
+
+using std::string;
+
+/***
+*** HELPER MACROS
+***/
+
+#define FileEncoding(Encoding)(file_encodings::Encoding)
+#define FileBOMEndianness(BOMEndianness)(file_bom_endianness::BOMEndianness)
+#define FileEndianness(Endianness)(file_endianness::Endianness)
+
+#define HighByte32(Bitmask)(((uint32_t) Bitmask) & 0xFF000000)
+#define LowByte32(Bitmask)(((uint32_t) Bitmask) & 0x000000FF)
+
+#define HighNibble32(Bitmask)(((uint32_t) Bitmask) & 0xF0000000)
+#define LowNibble32(Bitmask)(((uint32_t) Bitmask) & 0x0000000F)
+
+#define HighNibble8(Bitmask)(((uint8_t) Bitmask) & 0xF0)
+#define LowNibble8(Bitmask)(((uint8_t) Bitmask) & 0x0F)
+
+#define HasReadAccess(Access)  (((Access) & GENERIC_READ)  > 0)
+#define HasWriteAccess(Access) (((Access) & GENERIC_WRITE) > 0)
 
 namespace scratchpad
 {
@@ -36,19 +62,6 @@ namespace scratchpad
         LittleEndian = 1,
         Unknown = 2
     };
-
-#define FileEncoding(Encoding)(file_encodings::Encoding)
-#define FileBOMEndianness(BOMEndianness)(file_bom_endianness::BOMEndianness)
-#define FileEndianness(Endianness)(file_endianness::Endianness)
-
-#define HighByte32(Bitmask)(((uint32_t) Bitmask) & 0xFF000000)
-#define LowByte32(Bitmask)(((uint32_t) Bitmask) & 0x000000FF)
-
-#define HighNibble32(Bitmask)(((uint32_t) Bitmask) & 0xF0000000)
-#define LowNibble32(Bitmask)(((uint32_t) Bitmask) & 0x0000000F)
-
-#define HighNibble8(Bitmask)(((uint8_t) Bitmask) & 0xF0)
-#define LowNibble8(Bitmask)(((uint8_t) Bitmask) & 0x0F)
 
     class file
     {
@@ -126,43 +139,6 @@ namespace scratchpad
 
         WIN32_FILE_ATTRIBUTE_DATA Stat;
     };
-
-    enum class stream_io_type
-    {
-        BufferIO,
-        ConsoleIO,
-        FileIO
-    };
-
-    class stream_io
-    {
-
-    public:
-        stream_io(HANDLE IOStdHandle);
-        stream_io(file* File);
-
-    public:
-        ~stream_io();
-
-    public:
-        void Write(const char* Bytes, size_t Count);
-        size_t Read(char* ReceiveBuf, size_t Count);
-
-    private:
-        stream_io_type Type;
-
-    public:
-        size_t BufferSize;
-
-        union
-        {
-            char* Buffer;
-            file* File;
-            HANDLE Handle;
-        } Data;
-    };
-
-    
 }
 
 #endif

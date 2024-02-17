@@ -4,117 +4,135 @@
 #include "xml_document.h"
 #include "xml_markup.h"
 
+#include "logger.h"
+
 #include <iostream>
-#include <algorithm>
 #include <string>
 
-using std::reverse;
-using std::cout;
-using std::flush;
-using std::endl;
-using std::string;
-
-struct xml_name_token
+namespace scratchpad
 {
-	string Name;
+	using std::reverse;
+	using std::cout;
+	using std::flush;
+	using std::endl;
+	using std::string;
 
-	static xml_name_token* Create(const char* TokenText, size_t ByteCount)
+	struct xml_name_token
 	{
-		string Text(TokenText, ByteCount);
+		string Name;
 
-		if(!Text.empty())
+		static xml_name_token* Create(const char* TokenText, size_t ByteCount)
 		{
-			xml_name_token* Token = nullptr;
+			string Text(TokenText, ByteCount);
 
-			if(Token = new xml_name_token())
+			if(!Text.empty())
 			{
-				Token->Name = move(Text);
+				xml_name_token* Token = nullptr;
+
+				if(Token = new xml_name_token())
+				{
+					Token->Name = move(Text);
+				}
+
+				return Token;
 			}
 
-			return Token;
+			return nullptr;
 		}
+	};
 
-		return nullptr;
-	}
-};
+	/***
+	**** VARIOUS XML READER MODES
+	***/
 
-/***
-**** VARIOUS XML READER MODES
-***/
+	class xml_reader
+	{
 
-class xml_reader
-{
+	public:
+		xml_reader(scratchpad::xml_document& XMLDoc, 
+				   scratchpad::logger& Logger);
 
-public:
-	xml_reader(xml_document* XMLDoc);
-	~xml_reader();
+		~xml_reader();
 
-public:
-	bool Read();
+	private:
+		bool BytesMatch(const char* SrcBytes, size_t ByteCount);
 
-public:
-	void AttachLogger(logger* Logger);
+		bool TryToParseDocumentDeclarationMarkup();
+		bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
+		bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
+		bool TryToParseAttributeValue();
 
-private:
-	bool BytesMatch(const char* SrcBytes, size_t ByteCount);
+		void PushMarkupAttribute(const char* AttributeName, size_t ByteCount);
+		void PushMarkup(const char* StartTag, const char* EndTag);
+		void PushMarkup(const char* NameToken, size_t Length);
+		void PopMarkup();
 
-	bool TryToParseDocumentDeclarationMarkup();
-	bool TryToParseNameToken(char EndDelimiter, bool EatInitialByte = true);
-	bool TryToParseAttribute(const char* Lexeme, size_t ByteCount);
-	bool TryToParseAttributeValue();
+		void RemoveWS();
+		bool IsWS();
 
-	void PushMarkupAttribute(const char* AttributeName, size_t ByteCount);
-	void PushMarkup(const char* StartTag, const char* EndTag);
-	void PushMarkup(const char* NameToken, size_t Length);
-	void PopMarkup();
+	private:
+		void OutputInfo(const char* Message);
+		void OutputNotice(const char* Message);
+		void OutputWarning(const char* Message);
+		void OutputError(const char* Message);
 
-	void RemoveWS();
-	bool IsWS();
+	private:
+		xml_reader(const xml_reader& Rhs) = delete;
+		xml_reader(xml_reader&& Rhs) = delete;
 
-private:
-	void OutputInfo(const char* Message);
-	void OutputNotice(const char* Message);
-	void OutputWarning(const char* Message);
-	void OutputError(const char* Message);
+	public:
+		bool Read();
 
-private:
-	xml_reader(const xml_reader& Rhs) = delete;
-	xml_reader(xml_reader&& Rhs) = delete;
+	private:
 
-private:
+		// the current document were 
+		// suppose to be reading
+		xml_document* Doc;
 
-	// the current document were 
-	// suppose to be reading
-	xml_document* Doc;
+		// Current Reading Mode
+		// xml_reader_mode Mode;
 
-	// Current Reading Mode
-	// xml_reader_mode Mode;
+		// Buffer Range
+		string::iterator BeginStream;
+		string::iterator EndStream;
+		string::iterator Cursor;
 
-	// Buffer Range
-	const char* BufferBegin;
-	const char* BufferEnd;
+		// some lexer state
+		// variables
+		size_t WSSkipped;
+		size_t BytesRead;
 
-	// Selected Byte
-	const char* SelectedByte;
-	const char* SelectedByteMirror;
+		// cursor row, 
+		// and col
+		size_t Row;
+		size_t Col;
 
-	// Position and Buffer size
-	size_t WSSkipped;
+		// number of lines in buffer
+		size_t LineCount;
 
-	size_t BytesAvailable;
-	size_t BufferPos;
-	size_t BufferSize;
+		// byte offset from beginning of buffer
+		size_t ByteOffset;
 
-	// Reading State flags
-	bool EndOfBuffer;
-	string CharDataBuf;
+		// temp will change to
+		// byteoffset
+		size_t BufferPos;
 
-	vector<xml_name_token*> NameTokenStack;
-	vector<xml_markup*> MarkupStack;
-	vector<xml_markup_attribute*> MarkupAttributeStack;
+		// buffer size and 
+		// amount of available bytes
+		// from end of buffer stream
+		size_t BufferSize;
+		size_t BytesAvailable;
 
-	bool LoggingEnabled;
-	logger* Logger;
-};
+		// Reading State flags
+		bool EndOfBuffer;
+		string CharDataBuf;
+
+		vector<xml_name_token*> NameTokenStack;
+		vector<xml_markup*> MarkupStack;
+		vector<xml_markup_attribute*> MarkupAttributeStack;
+
+		scratchpad::logger* Logger;
+	};
+}
 
 #endif
