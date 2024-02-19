@@ -1,6 +1,14 @@
 #include "./include/xml_source.h"
 
 /****
+***** C++ INCLUDES
+****/
+
+#include <string_view>
+
+using std::string_view;
+
+/****
 ***** TYPE CASTING
 ***** HELPER MACROS
 ****/
@@ -11,6 +19,12 @@
 
 namespace scratchpad
 {
+	static const string_view XMLDeclStartTag = "<?xml";
+	static const string_view XMLDeclEndTag	 = "?>";
+	static const string_view XMLDocTypeStartTag = "<!DOCTYPE";
+	static const string_view CommentStartTag = "<!--";
+	static const string_view CommentEndTag   = "-->";
+	
 	/****
 	***** MAIN CONSTRUCTOR
 	***** FOR XML SOURCE
@@ -80,7 +94,7 @@ namespace scratchpad
 	/****
 	***** CLEANUP METHOD/FILE 
 	****/
-	void xml_source::Close()
+	inline void xml_source::Close()
 	{
 		if(SourceFile.is_open())
 		{
@@ -102,13 +116,13 @@ namespace scratchpad
 		SourceBuffSize = 0;
 	}
 
-	void xml_source::SetSourceBuff(string XMLSourceBuff)
+	inline void xml_source::SetSourceBuff(string XMLSourceBuff)
 	{
 		SourceBuffSize = XMLSourceBuff.size();
 		SourceBuff.str(move(XMLSourceBuff));
 	}
 
-	bool xml_source::ReadSourceFile(fstream&& SourceFile, string XMLSourceDiskPath)
+	inline bool xml_source::ReadSourceFile(fstream&& SourceFile, string XMLSourceDiskPath)
 	{
 		if(!SourceFile.is_open())
 		{
@@ -136,7 +150,7 @@ namespace scratchpad
 		return true;
 	}
 
-	void xml_source::PopMarkup()
+	inline void xml_source::PopMarkup()
 	{
 		if(!Markup.empty())
 		{
@@ -144,7 +158,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::PushMarkup(string NameToken)
+	inline void xml_source::PushMarkup(string NameToken)
 	{
 		xml_markup* MarkupNode = nullptr;
 
@@ -182,22 +196,19 @@ namespace scratchpad
 				{
 					if(TryToParseDeclStart())
 					{
-						const string StartTag = "<?xml";
-						PushMarkup(StartTag);
+						PushMarkup(XMLDeclStartTag.data());
 
 						break;
 					}
 					else if(TryToParseTypeStart())
 					{
-						const string StartTag = "<!DOCTYPE";
-						PushMarkup(StartTag);
+						PushMarkup(XMLDocTypeStartTag.data());
 
 						break;
 					}
 					else if(TryToParseCommentStart())
 					{
-						const string StartTag = "<!--";
-						PushMarkup(StartTag);
+						PushMarkup(CommentStartTag.data());
 
 						break;
 					}
@@ -247,7 +258,7 @@ namespace scratchpad
 	/****
 	***** PRIVATE PARSING METHODS
 	****/
-	bool xml_source::SetErrorState()
+	inline bool xml_source::SetErrorState()
 	{
 		if(!Error)
 		{
@@ -258,7 +269,7 @@ namespace scratchpad
 		return !Error;
 	}
 
-	void xml_source::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
+	inline void xml_source::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
 	{
 		if(SetErrorState())
 		{
@@ -267,7 +278,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorFailedToReadFile(const char* XMLSourceDiskPath)
+	inline void xml_source::SetErrorFailedToReadFile(const char* XMLSourceDiskPath)
 	{
 		if(SetErrorState())
 		{
@@ -276,7 +287,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorUnclosedTag()
+	inline void xml_source::SetErrorUnclosedTag()
 	{
 		if(SetErrorState())
 		{
@@ -285,7 +296,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorMissingAttVal()
+	inline void xml_source::SetErrorMissingAttVal()
 	{
 		if(SetErrorState())
 		{
@@ -294,7 +305,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorIllegalNameStart()
+	inline void xml_source::SetErrorIllegalNameStart()
 	{
 		if(SetErrorState())
 		{
@@ -303,7 +314,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorIllegalLiteralVal()
+	inline void xml_source::SetErrorIllegalLiteralVal()
 	{
 		if(SetErrorState())
 		{ 
@@ -312,7 +323,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorMalformedTypeTag()
+	inline void xml_source::SetErrorMalformedTypeTag()
 	{
 		if(SetErrorState())
 		{
@@ -329,7 +340,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorMalformedDeclTag()
+	inline void xml_source::SetErrorMalformedDeclTag()
 	{
 		if(SetErrorState())
 		{
@@ -346,7 +357,13 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::Rewind(size_t Count)
+	inline void xml_source::SetErrorMalformedCommentTag()
+	{
+		ErrorBuff << "[ERROR] malformed comment tag\n"
+				  << endl;
+	}
+
+	inline void xml_source::Rewind(size_t Count)
 	{
 		while(Count > 0)
 		{
@@ -358,12 +375,12 @@ namespace scratchpad
 		}
 	}
 
-	string xml_source::GetLastError()
+	inline string xml_source::GetLastError()
 	{
 		return ErrorBuff.str();
 	}
 
-	void xml_source::OutputLastError()
+	inline void xml_source::OutputLastError()
 	{
 		string ErrorMessage = GetLastError();
 
@@ -374,18 +391,18 @@ namespace scratchpad
 		}
 	}
 
-	streambuf* xml_source::Buffer()
+	inline streambuf* xml_source::Buffer()
 	{
 		return SourceBuff.rdbuf();
 	}
 
-    bool xml_source::IsNL()
+    inline bool xml_source::IsNL()
     {
         return (Buffer()->sgetc() == '\r' ||
                 Buffer()->sgetc() == '\n');
     }
 
-    bool xml_source::IsWS()
+    inline bool xml_source::IsWS()
     {
         return (Buffer()->sgetc() == ' '  ||
 		        Buffer()->sgetc() == '\t' ||
@@ -393,7 +410,7 @@ namespace scratchpad
                 Buffer()->sgetc() == '\n');
     }
 
-    void xml_source::TrimWS()
+    inline void xml_source::TrimWS()
     {
         WSSkipped = 0;
 
@@ -413,7 +430,7 @@ namespace scratchpad
         }
     }
 
-	bool xml_source::Match(const char* Bytes, size_t ByteCount)
+	inline bool xml_source::Match(const char* Bytes, size_t ByteCount)
 	{
 		if(ByteCount > Buffer()->in_avail())
 		{
@@ -443,76 +460,68 @@ namespace scratchpad
 		return Matched && !Error;
 	}
 
-	bool xml_source::TryToParseDeclStart()
+	inline bool xml_source::TryToParseStartTag(string TagText)
+	{
+		if(Match(TagText.c_str(),
+			     TagText.size()))
+		{
+			if(!IsWS())
+			{
+				// grab last byte
+				// read for error 
+				// reporting
+				BytesRead++;
+
+				return false;
+			}
+		}
+
+		return !Error;
+	}
+
+	inline bool xml_source::TryToParseDeclStart()
 	{		
-		const string StartTag = "<?xml";
-
-		if(Match(StartTag.c_str(),
-				 StartTag.size()))
+		if(!TryToParseStartTag(XMLDeclStartTag.data()))
 		{
-			if(!IsWS())
-			{
-				// grab last byte
-				// read for error 
-				// reporting
-				BytesRead++;
+			Rewind(XMLDeclStartTag.size());
 
-				// set malformed name 
-				// token error
-				SetErrorMalformedDeclTag();
-			}
-
-			return !Error;
+			// set malformed name 
+			// token error
+			SetErrorMalformedDeclTag();
 		}
 
-		Rewind(StartTag.size());
-
-		return false;
+		return !Error;
 	}
 
-	bool xml_source::TryToParseTypeStart()
+	inline bool xml_source::TryToParseTypeStart()
 	{
-		const string StartTag = "<!DOCTYPE";
-
-		if(Match(StartTag.c_str(),
-				 StartTag.size()))
+		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
-			if(!IsWS())
-			{
-				// grab last byte
-				// read for error 
-				// reporting
-				BytesRead++;
+			Rewind(XMLDocTypeStartTag.size());
 
-				// set malformed name 
-				// token error
-				SetErrorMalformedTypeTag();
-			}
-
-			return !Error;
+			// set malformed name 
+			// token error
+			SetErrorMalformedTypeTag();
 		}
 
-		Rewind(StartTag.size());
-
-		return false;
+		return !Error;
 	}
 
-	bool xml_source::TryToParseCommentStart()
+	inline bool xml_source::TryToParseCommentStart()
 	{
-		const string StartTag = "<!--";
-
-		if(Match(StartTag.c_str(),
-				 StartTag.size()))
+		if(!TryToParseStartTag(CommentStartTag.data()))
 		{
-			return !Error;
-		}
+			Rewind(XMLDocTypeStartTag.size());
 
-		Rewind(StartTag.size());
-		
-		return false;
+			// set malformed name 
+			// token error
+			SetErrorMalformedTypeTag();
+		}
+			
+		return !Error;
 	}
 
-	bool xml_source::TryToParseNameStart()
+	inline bool xml_source::TryToParseNameStart()
 	{
 		/*** [4]		NameStartChar	   :: = ":" | [A - Z] | "_" | [a - z] | [#xC0 - #xD6] | 
 		****                                          [#xD8 - #xF6] | [#xF8 - #x2FF] | [#x370 - #x37D] | 
@@ -611,6 +620,14 @@ namespace scratchpad
 
 	bool xml_source::TryToParseLiteral()
 	{
+		if(Buffer()->sgetc() != '\"')
+		{
+			// advance buffer beyond
+			// the initial quote
+
+			return false;
+		}
+
 		BytesRead = 0;
 
 		const char IllegalCharacters[] 

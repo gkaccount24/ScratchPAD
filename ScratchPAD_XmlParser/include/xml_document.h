@@ -29,13 +29,15 @@ namespace scratchpad
 		void PopMarkup();
 
 	private:
+		// document specific data members
+		string		Decl[(int) xml_decl_attributes::Count];
+		bool		ParsedDecl;
+
+	public:
 		// all the things, just the
 		// document markup tree
 		xml_markup* Markup;
 
-		// document specific data members
-		string		Decl[(int) xml_decl_attributes::Count];
-		bool		ParsedDecl;
 	};
 }
 

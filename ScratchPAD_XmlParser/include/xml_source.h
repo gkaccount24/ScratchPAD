@@ -128,6 +128,8 @@ namespace scratchpad
 		bool TryToParseNameStart();
 		bool TryToParseNameToken(char Delim);
 		bool TryToParseLiteral();
+
+		bool TryToParseStartTag(string TagText);
 		bool TryToParseDeclStart();
 		bool TryToParseTypeStart();
 		bool TryToParseCommentStart();
@@ -152,6 +154,7 @@ namespace scratchpad
 		void SetErrorIllegalLiteralVal();
 		void SetErrorMalformedDeclTag();
 		void SetErrorMalformedTypeTag();
+		void SetErrorMalformedCommentTag();
 		void SetErrorMissingAttVal();
 		void SetErrorUnclosedTag();
 
