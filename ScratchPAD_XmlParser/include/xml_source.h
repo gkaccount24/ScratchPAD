@@ -144,12 +144,12 @@ namespace scratchpad
 		bool IsWS();
 		void TrimWS();
 
-		bool TryToParseComment();
 		bool TryToParseNameStart();
 		bool TryToParseNameToken(char Delim);
 		bool TryToParseLiteral();
-		bool TryToParseDecl();
-		bool TryToParseType();
+		bool TryToParseDeclStart();
+		bool TryToParseTypeStart();
+		bool TryToParseCommentStart();
 
 		bool Match(const char* Bytes, size_t ByteCount);
 
@@ -160,6 +160,8 @@ namespace scratchpad
 		****/
 		void PushMarkup(const char* NameToken, size_t Length);
 		void PopMarkup();
+
+		void GetDeclMarkup();
 
 	private: 
 		/****

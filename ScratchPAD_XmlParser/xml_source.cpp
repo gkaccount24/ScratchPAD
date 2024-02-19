@@ -159,12 +159,12 @@ namespace scratchpad
 					// advance buffer
 					Buffer()->sbumpc();
 
-					if(TryToParseDecl())
+					if(TryToParseDeclStart())
 					{
 
 						break;
 					}
-					else if(TryToParseType())
+					else if(TryToParseTypeStart())
 					{
 
 						break;
@@ -344,26 +344,30 @@ namespace scratchpad
 				Matched = false;
 				break;
 			}
+
+			// advance input 
+			// buffer
+			Buffer()->sbumpc();
 		}
 
 		return Matched && !Error;
 	}
 
-	bool xml_source::TryToParseDecl()
+	bool xml_source::TryToParseDeclStart()
 	{		
 		const string StartTag = "<?xml";
 		return Match(StartTag.c_str(), 
 					 StartTag.size()) && !Error;
 	}
 
-	bool xml_source::TryToParseType()
+	bool xml_source::TryToParseTypeStart()
 	{
 		const string StartTag = "<!DOCTYPE";
 		return Match(StartTag.c_str(), 
 					 StartTag.size()) && !Error;
 	}
 
-	bool xml_source::TryToParseComment()
+	bool xml_source::TryToParseCommentStart()
 	{
 		const string StartTag = "<!--";
 		return Match(StartTag.c_str(),
