@@ -82,21 +82,39 @@ namespace scratchpad
 	****/
 	void xml_source::Close()
 	{
+		if(SourceFile.is_open())
+		{
+			SourceFile.clear();
+			SourceFile.close();
+		}
 
+		NameTokens.clear();
+		Markup.clear();
+
+		WSSkipped = 0;
+		BytesRead = 0;
+		BytesWritten = 0;
+		LineCount = 0;
+		Row = 0;
+		Col = 0;
+
+		SourceBuff.clear();
+		SourceBuffSize = 0;
 	}
 
-	void xml_source::SetSourceBuff(const char* XMLSourceBuff)
+	void xml_source::SetSourceBuff(string XMLSourceBuff)
 	{
-
+		SourceBuffSize = XMLSourceBuff.size();
+		SourceBuff.str(move(XMLSourceBuff));
 	}
 
-	bool xml_source::ReadSourceFile(fstream&& SourceFile, const char* XMLSourceDiskPath)
+	bool xml_source::ReadSourceFile(fstream&& SourceFile, string XMLSourceDiskPath)
 	{
 		if(!SourceFile.is_open())
 		{
 			// failed to open source file
 			// log failure to open xml source
-			SetErrorFileNotOpen(XMLSourceDiskPath);
+			SetErrorFileNotOpen(XMLSourceDiskPath.c_str());
 			return false;
 		}
 
@@ -105,12 +123,16 @@ namespace scratchpad
 		SourceFile.seekg(0, std::ios_base::beg);
 
 		string TempBuff;
+
 		TempBuff.resize(SourceBuffSize);
 
-		SourceFile.read(TempBuff.data(), TempBuff.size());
+		SourceFile.read(TempBuff.data(), 
+						TempBuff.size());
+
 		SourceFile.close();
 
 		SourceBuff.str(move(TempBuff));
+
 		return true;
 	}
 
@@ -122,11 +144,11 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::PushMarkup(const char* NameToken, size_t Length)
+	void xml_source::PushMarkup(string NameToken)
 	{
 		xml_markup* MarkupNode = nullptr;
 
-		if(MarkupNode = xml_markup::Create(NameToken, Length))
+		if(MarkupNode = new xml_markup(move(NameToken)))
 		{
 			if(!Markup.empty())
 			{
@@ -149,6 +171,8 @@ namespace scratchpad
 		{
 			TrimWS();
 
+			char DebugChar = Buffer()->sgetc();
+
 			switch(Buffer()->sgetc())
 			{
 				/****
@@ -156,23 +180,38 @@ namespace scratchpad
 				****/
 				case '<':
 				{
-					// advance buffer
-					Buffer()->sbumpc();
-
 					if(TryToParseDeclStart())
 					{
+						const string StartTag = "<?xml";
+						PushMarkup(StartTag);
 
 						break;
 					}
 					else if(TryToParseTypeStart())
 					{
+						const string StartTag = "<!DOCTYPE";
+						PushMarkup(StartTag);
 
 						break;
 					}
-					else if(!TryToParseNameToken('>'))
+					else if(TryToParseCommentStart())
 					{
-						// OutputLastError();
+						const string StartTag = "<!--";
+						PushMarkup(StartTag);
+
 						break;
+					}
+					else
+					{
+						// advance input buffer
+						// fewer bytes to read;
+						Buffer()->sbumpc();
+
+						if(!TryToParseNameToken('>'))
+						{
+							// OutputLastError();
+							break;
+						}
 					}
 
 					break;
@@ -255,21 +294,50 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SetErrorIllegalNameStart(char C)
+	void xml_source::SetErrorIllegalNameStart()
 	{
 		if(SetErrorState())
 		{
 			ErrorBuff << "[ERROR] illegal name start char\n"
-					  << "        received " << C << endl;
+					  << "        received " << Buffer()->sgetc() << endl;
 		}
 	}
 
-	void xml_source::SetErrorIllegalLiteralVal(char C)
+	void xml_source::SetErrorIllegalLiteralVal()
 	{
 		if(SetErrorState())
 		{ 
 			ErrorBuff << "[ERROR] illegal literal value\n";
-			ErrorBuff << "        received " << C << endl;
+			ErrorBuff << "        received " << Buffer()->sgetc() << endl;
+		}
+	}
+
+	void xml_source::SetErrorMalformedDeclTag()
+	{
+		if(SetErrorState())
+		{
+			string MalformedNameToken;
+
+			MalformedNameToken.resize(BytesRead);
+
+			Buffer()->sgetn(MalformedNameToken.data(), 
+							MalformedNameToken.size());
+
+			ErrorBuff << "[ERROR] malformed xml decl tag\n"
+					  << "        received " << MalformedNameToken
+					  << endl;
+		}
+	}
+
+	void xml_source::Rewind(size_t Count)
+	{
+		while(Count > 0)
+		{
+			// add bytes back
+			// to the input buffer
+			Buffer()->sungetc();
+
+			Count--;
 		}
 	}
 
@@ -335,10 +403,14 @@ namespace scratchpad
 			return false;
 		}
 
+		BytesRead = 0;
+
 		bool Matched = true;
 
 		for(size_t Idx = 0; Idx < ByteCount; Idx++)
 		{
+			char CDebug = Buffer()->sgetc();
+
 			if(Buffer()->sgetc() != Bytes[Idx])
 			{
 				Matched = false;
@@ -348,6 +420,7 @@ namespace scratchpad
 			// advance input 
 			// buffer
 			Buffer()->sbumpc();
+			BytesRead++;
 		}
 
 		return Matched && !Error;
@@ -356,22 +429,56 @@ namespace scratchpad
 	bool xml_source::TryToParseDeclStart()
 	{		
 		const string StartTag = "<?xml";
-		return Match(StartTag.c_str(), 
-					 StartTag.size()) && !Error;
+
+		if(Match(StartTag.c_str(),
+				 StartTag.size()))
+		{
+			if(!IsWS())
+			{
+				// grab last byte
+				// read for error 
+				// reporting
+				BytesRead++;
+
+				SetErrorMalformedDeclTag();
+			}
+
+			return !Error;
+		}
+
+		Rewind(StartTag.size());
+
+		return false;
 	}
 
 	bool xml_source::TryToParseTypeStart()
 	{
 		const string StartTag = "<!DOCTYPE";
-		return Match(StartTag.c_str(), 
-					 StartTag.size()) && !Error;
+
+		if(Match(StartTag.c_str(),
+				 StartTag.size()))
+		{
+			return !Error;
+		}
+
+		Rewind(StartTag.size());
+
+		return false;
 	}
 
 	bool xml_source::TryToParseCommentStart()
 	{
 		const string StartTag = "<!--";
-		return Match(StartTag.c_str(),
-					 StartTag.size());
+
+		if(Match(StartTag.c_str(),
+				 StartTag.size()))
+		{
+			return !Error;
+		}
+
+		Rewind(StartTag.size());
+		
+		return false;
 	}
 
 	bool xml_source::TryToParseNameStart()
@@ -413,7 +520,7 @@ namespace scratchpad
 
 		if(!TryToParseNameStart())
 		{
-			SetErrorIllegalNameStart(Buffer()->sgetc());
+			SetErrorIllegalNameStart();
 			return !Error;
 		}
 
@@ -459,10 +566,12 @@ namespace scratchpad
 			string TempBuff;
 			TempBuff.resize(BytesRead);
 
-			// extract bytes from buffer into temp buffer
+			// extract bytes from 
+			// buffer into temp buffer
 			Buffer()->sgetn(TempBuff.data(), TempBuff.size());
 
-			// save token text on token stack
+			// save token text 
+			// on token stack
 			NameTokens.push_back(move(TempBuff));
 		}
 
@@ -483,7 +592,7 @@ namespace scratchpad
 			if(Buffer()->sgetc() == IllegalCharacters[0] && 
 			   Buffer()->sgetc() == IllegalCharacters[1])
 			{
-				SetErrorIllegalLiteralVal(Buffer()->sgetc());
+				SetErrorIllegalLiteralVal();
 				break;
 			}
 

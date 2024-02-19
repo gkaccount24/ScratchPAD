@@ -134,9 +134,11 @@ namespace scratchpad
 		void		  Close();
 
 	private:
-		void SetSourceBuff(const char* XMLSourceBuff);
+		void SetSourceBuff(string XMLSourceBuff);
 		bool ReadSourceFile(fstream&& XMLSourceFile, 
-							const char* XMLSourceDiskPath);
+							string XMLSourceDiskPath);
+
+		void Rewind(size_t Count);
 	private:
 		streambuf* Buffer();
 
@@ -158,10 +160,8 @@ namespace scratchpad
 		***** XML MARKUP
 		***** BUILDER METHODS
 		****/
-		void PushMarkup(const char* NameToken, size_t Length);
+		void PushMarkup(string MarkupText);
 		void PopMarkup();
-
-		void GetDeclMarkup();
 
 	private: 
 		/****
@@ -169,8 +169,9 @@ namespace scratchpad
 		***** MESSAGES
 		****/
 		bool SetErrorState();
-		void SetErrorIllegalNameStart(char C);
-		void SetErrorIllegalLiteralVal(char C);
+		void SetErrorIllegalNameStart();
+		void SetErrorIllegalLiteralVal();
+		void SetErrorMalformedDeclTag();
 		void SetErrorMissingAttVal();
 		void SetErrorUnclosedTag();
 
