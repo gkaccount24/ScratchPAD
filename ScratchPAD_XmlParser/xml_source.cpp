@@ -185,7 +185,25 @@ namespace scratchpad
 		{
 			TrimWS();
 
-			char DebugChar = Buffer()->sgetc();
+			if(ParsingState == xml_parsing_states::ParsingDecl)
+			{
+				while(!Error && !TryToParseNameToken('='))
+				{
+					/*** TryToParseNameToken() ONLY RETURNS TRUE WHEN
+					**** the delimiter is parsed, false 
+					**** if only parsed to whitespace
+					**** this way we keep the loop
+					**** for parsing attribute tokens
+					**** going
+					***/
+
+					if(TryToParseLiteral())
+					{
+
+
+					}
+				}
+			}
 
 			switch(Buffer()->sgetc())
 			{
@@ -196,19 +214,28 @@ namespace scratchpad
 				{
 					if(TryToParseDeclStart())
 					{
-						PushMarkup(XMLDeclStartTag.data());
+						if(TryToSetParsingDeclState())
+						{
+							PushMarkup(XMLDeclStartTag.data());
+						}
 
 						break;
 					}
 					else if(TryToParseTypeStart())
 					{
-						PushMarkup(XMLDocTypeStartTag.data());
+						if(TryToSetParsingTypeState())
+						{
+							PushMarkup(XMLDocTypeStartTag.data());
+						}
 
 						break;
 					}
 					else if(TryToParseCommentStart())
 					{
-						PushMarkup(CommentStartTag.data());
+						if(TryToSetParsingCommentState())
+						{
+							PushMarkup(CommentStartTag.data());
+						}
 
 						break;
 					}
@@ -246,6 +273,13 @@ namespace scratchpad
 					{
 
 					}
+
+					break;
+				}
+
+				default:
+				{
+
 
 					break;
 				}
@@ -410,6 +444,16 @@ namespace scratchpad
                 Buffer()->sgetc() == '\n');
     }
 
+	inline void xml_source::Append(const char* Bytes)
+	{
+
+	}
+
+	inline void xml_source::Append(char Char)
+	{
+
+	}
+
     inline void xml_source::TrimWS()
     {
         WSSkipped = 0;
@@ -430,6 +474,27 @@ namespace scratchpad
         }
     }
 
+	inline bool xml_source::TryToSetParsingDeclState()
+	{
+		ParsingState = xml_parsing_states::ParsingDecl;
+
+		return true;
+	}
+
+	inline bool xml_source::TryToSetParsingTypeState()
+	{
+		ParsingState = xml_parsing_states::ParsingType;
+
+		return true;
+	}
+
+	inline bool xml_source::TryToSetParsingCommentState()
+	{
+		ParsingState = xml_parsing_states::ParsingComment;
+
+		return true;
+	}
+
 	inline bool xml_source::Match(const char* Bytes, size_t ByteCount)
 	{
 		if(ByteCount > Buffer()->in_avail())
@@ -443,8 +508,7 @@ namespace scratchpad
 
 		for(size_t Idx = 0; Idx < ByteCount; Idx++)
 		{
-			char CDebug = Buffer()->sgetc();
-
+			// char CDebug = Buffer()->sgetc();
 			if(Buffer()->sgetc() != Bytes[Idx])
 			{
 				Matched = false;
@@ -591,7 +655,7 @@ namespace scratchpad
 
 				// advance buffer
 				// fewer bytes to read
-				Buffer()->sbumpc();
+				Append(Buffer()->sbumpc());
 			}
 		}
 
@@ -610,6 +674,8 @@ namespace scratchpad
 			// buffer into temp buffer
 			Buffer()->sgetn(TempBuff.data(), TempBuff.size());
 
+			Append(TempBuff.c_str());
+
 			// save token text 
 			// on token stack
 			NameTokens.push_back(move(TempBuff));
@@ -618,7 +684,7 @@ namespace scratchpad
 		return ParsedToDelim && !Error;
 	}
 
-	bool xml_source::TryToParseLiteral()
+	inline bool xml_source::TryToParseLiteral()
 	{
 		if(Buffer()->sgetc() != '\"')
 		{
@@ -646,7 +712,7 @@ namespace scratchpad
 				break;
 			}
 
-			Buffer()->sbumpc();
+			Append(Buffer()->sbumpc());
 			BytesRead++;
 		}
 

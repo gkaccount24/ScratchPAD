@@ -29,66 +29,75 @@ namespace scratchpad
 	using std::cout;
 	using std::endl;
 
+	//enum class xml_parsing_states
+	//{
+	//	/*****
+	//	****** Start - tag
+	//	****** [40]   	STag	   :: = '<' Name(S Attribute) * S ? '>'[WFC:Unique Att Spec]
+	//	****** [41]   	Attribute	   :: = Name Eq AttValue[VC:Attribute Value Type]
+	//	****** [WFC:No External Entity References]
+	//	****** [WFC:No < in Attribute Values]
+	//	*****/
+	//	ParsingStartTag = 0,
+
+	//	/*****
+	//	****** ETag	   :: = '</' Name S ? '>'
+	//	*****/
+	//	ParsingEndTag = 1,
+
+	//	/*****
+	//	****** [45]   	elementdecl	   ::=   	'<!ELEMENT' S Name S contentspec S? '>'	[VC: Unique Element Type Declaration]
+	//	****** [46]   	contentspec	   ::=   	'EMPTY' | 'ANY' | Mixed | children 
+	//	*****/
+	//	ParsingElementDecl = 2,
+
+	//	/**** [52]   	AttlistDecl	   :: = '<!ATTLIST' S Name AttDef * S ? '>'
+	//	***** [53]   	AttDef	   :: = S Name S AttType S DefaultDecl
+	//	****/
+	//	ParsingAttributeListDecl = 3,
+
+	//	/****
+	//	***** [55]   	StringType	   ::=   	'CDATA'
+	//	****/
+	//	ParsingStringTypeAtt = 4,
+
+	//	/****
+	//	***** [56]   	TokenizedType	   ::=   	'ID'	[VC: ID]
+	//	****/
+	//	ParsingTokenizedTypeAtt = 5,
+
+	//	/****
+	//	***** [57]   	EnumeratedType	   ::=   	NotationType | Enumeration
+	//    ***** [58]   	NotationType	   ::=   	'NOTATION' S '(' S? Name (S? '|' S? Name)* S? ')' 	[VC: Notation Attributes]
+	//	*****			[VC: One Notation Per Element Type]
+	//	*****			[VC: No Notation on Empty Element]
+	//	*****			[VC: No Duplicate Tokens]
+	//	***** [59]   	Enumeration	   ::=   	'(' S? Nmtoken (S? '|' S? Nmtoken)* S? ')'	[VC: Enumeration]
+	//	*****			[VC: No Duplicate Tokens]
+	//	****/
+	//	ParsingEnumeratedTypeAtt = 6,
+
+	//	/****
+	//	***** [56]   	TokenizedType  ::=   	'ID'	[VC: ID]
+	//	***** [82]   	NotationDecl   ::=   	'<!NOTATION' S Name S (ExternalID | PublicID) S? '>'	[VC: Unique Notation Name]
+	//	***** [83]   	PublicID	   ::=   	'PUBLIC' S PubidLiteral
+	//	****/
+	//	ParsingNotationDecl = 7,
+
+	//	/****
+	//	***** max number of 
+	//	***** parsing states
+	//	****/
+	//	ParsingStateCount = 8
+	//};
+
 	enum class xml_parsing_states
 	{
-		/*****
-		****** Start - tag
-		****** [40]   	STag	   :: = '<' Name(S Attribute) * S ? '>'[WFC:Unique Att Spec]
-		****** [41]   	Attribute	   :: = Name Eq AttValue[VC:Attribute Value Type]
-		****** [WFC:No External Entity References]
-		****** [WFC:No < in Attribute Values]
-		*****/
-		ParsingStartTag = 0,
-
-		/*****
-		****** ETag	   :: = '</' Name S ? '>'
-		*****/
-		ParsingEndTag = 1,
-
-		/*****
-		****** [45]   	elementdecl	   ::=   	'<!ELEMENT' S Name S contentspec S? '>'	[VC: Unique Element Type Declaration]
-		****** [46]   	contentspec	   ::=   	'EMPTY' | 'ANY' | Mixed | children 
-		*****/
-		ParsingElementDecl = 2,
-
-		/**** [52]   	AttlistDecl	   :: = '<!ATTLIST' S Name AttDef * S ? '>'
-		***** [53]   	AttDef	   :: = S Name S AttType S DefaultDecl
-		****/
-		ParsingAttributeListDecl = 3,
-
-		/****
-		***** [55]   	StringType	   ::=   	'CDATA'
-		****/
-		ParsingStringTypeAtt = 4,
-
-		/****
-		***** [56]   	TokenizedType	   ::=   	'ID'	[VC: ID]
-		****/
-		ParsingTokenizedTypeAtt = 5,
-
-		/****
-		***** [57]   	EnumeratedType	   ::=   	NotationType | Enumeration
-	    ***** [58]   	NotationType	   ::=   	'NOTATION' S '(' S? Name (S? '|' S? Name)* S? ')' 	[VC: Notation Attributes]
-		*****			[VC: One Notation Per Element Type]
-		*****			[VC: No Notation on Empty Element]
-		*****			[VC: No Duplicate Tokens]
-		***** [59]   	Enumeration	   ::=   	'(' S? Nmtoken (S? '|' S? Nmtoken)* S? ')'	[VC: Enumeration]
-		*****			[VC: No Duplicate Tokens]
-		****/
-		ParsingEnumeratedTypeAtt = 6,
-
-		/****
-		***** [56]   	TokenizedType  ::=   	'ID'	[VC: ID]
-		***** [82]   	NotationDecl   ::=   	'<!NOTATION' S Name S (ExternalID | PublicID) S? '>'	[VC: Unique Notation Name]
-		***** [83]   	PublicID	   ::=   	'PUBLIC' S PubidLiteral
-		****/
-		ParsingNotationDecl = 7,
-
-		/****
-		***** max number of 
-		***** parsing states
-		****/
-		ParsingStateCount = 8
+		ParsingDecl		  = 0,
+		ParsingType		  = 1,
+		ParsingComment    = 2,
+		ParsingUnknown	  = 3,
+		ParsingStateCount = 4 
 	};
 
 	class xml_source
@@ -125,6 +134,9 @@ namespace scratchpad
 		bool IsWS();
 		void TrimWS();
 
+		bool Match(const char* Bytes, 
+				   size_t ByteCount);
+
 		bool TryToParseNameStart();
 		bool TryToParseNameToken(char Delim);
 		bool TryToParseLiteral();
@@ -134,7 +146,12 @@ namespace scratchpad
 		bool TryToParseTypeStart();
 		bool TryToParseCommentStart();
 
-		bool Match(const char* Bytes, size_t ByteCount);
+		bool TryToSetParsingDeclState();
+		bool TryToSetParsingTypeState();
+		bool TryToSetParsingCommentState();
+
+		void Append(const char* Bytes);
+		void Append(char Char);
 
 	private:
 		/****
@@ -184,6 +201,18 @@ namespace scratchpad
 		size_t LineCount;
 		size_t Row;
 		size_t Col;
+
+		/****
+		***** PARSING STATE 
+		***** DATA
+		****/
+		xml_parsing_states ParsingState;
+
+		/****
+		***** GENERIC STRING
+		***** FOR WRITE BUFFERING
+		****/
+		string		 WriteBuff;
 
 		/****
 		***** ERROR
