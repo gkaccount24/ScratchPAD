@@ -312,6 +312,23 @@ namespace scratchpad
 		}
 	}
 
+	void xml_source::SetErrorMalformedTypeTag()
+	{
+		if(SetErrorState())
+		{
+			string MalformedNameToken;
+
+			MalformedNameToken.resize(BytesRead);
+
+			Buffer()->sgetn(MalformedNameToken.data(), 
+							MalformedNameToken.size());
+
+			ErrorBuff << "[ERROR] malformed xml decl tag\n"
+					  << "        received " << MalformedNameToken
+					  << endl;
+		}
+	}
+
 	void xml_source::SetErrorMalformedDeclTag()
 	{
 		if(SetErrorState())
@@ -440,6 +457,8 @@ namespace scratchpad
 				// reporting
 				BytesRead++;
 
+				// set malformed name 
+				// token error
 				SetErrorMalformedDeclTag();
 			}
 
@@ -458,6 +477,18 @@ namespace scratchpad
 		if(Match(StartTag.c_str(),
 				 StartTag.size()))
 		{
+			if(!IsWS())
+			{
+				// grab last byte
+				// read for error 
+				// reporting
+				BytesRead++;
+
+				// set malformed name 
+				// token error
+				SetErrorMalformedTypeTag();
+			}
+
 			return !Error;
 		}
 
@@ -580,6 +611,8 @@ namespace scratchpad
 
 	bool xml_source::TryToParseLiteral()
 	{
+		BytesRead = 0;
+
 		const char IllegalCharacters[] 
 		{
 			'<', '&'
@@ -597,6 +630,7 @@ namespace scratchpad
 			}
 
 			Buffer()->sbumpc();
+			BytesRead++;
 		}
 
 		return !Error;

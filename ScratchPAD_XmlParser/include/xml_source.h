@@ -91,27 +91,6 @@ namespace scratchpad
 		ParsingStateCount = 8
 	};
 
-	struct xml_parsing_state
-	{
-		/**** STATE NAME
-		****/
-		xml_parsing_states Idx;
-
-		/****
-		***** Character single or 
-		***** multibyte chars being lexed
-		****/
-		size_t			   CharValRangeBegin;
-		size_t			   CharValRangeEnd;
-
-		string			   Charset;
-
-		/****
-		***** allowed transitions
-		****/
-		vector<xml_parsing_states> Transitions;
-	};
-
 	class xml_source
 	{
 
@@ -172,6 +151,7 @@ namespace scratchpad
 		void SetErrorIllegalNameStart();
 		void SetErrorIllegalLiteralVal();
 		void SetErrorMalformedDeclTag();
+		void SetErrorMalformedTypeTag();
 		void SetErrorMissingAttVal();
 		void SetErrorUnclosedTag();
 
