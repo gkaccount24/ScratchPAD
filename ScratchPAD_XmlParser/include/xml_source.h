@@ -93,11 +93,15 @@ namespace scratchpad
 
 	enum class xml_parsing_states
 	{
-		ParsingDecl		  = 0,
-		ParsingType		  = 1,
-		ParsingComment    = 2,
-		ParsingUnknown	  = 3,
-		ParsingStateCount = 4 
+		ParsingStartTag   = 0,
+		ParsingEndTag	  = 1,
+
+		ParsingDeclAtts	  = 2,
+		ParsingTypeAtts	  = 3,
+		ParsingType		  = 4,
+		ParsingComment    = 5,
+		ParsingUnknown	  = 6,
+		ParsingStateCount = 7
 	};
 
 	class xml_source
@@ -146,12 +150,7 @@ namespace scratchpad
 		bool TryToParseTypeStart();
 		bool TryToParseCommentStart();
 
-		bool TryToSetParsingDeclState();
-		bool TryToSetParsingTypeState();
-		bool TryToSetParsingCommentState();
-
-		void Append(const char* Bytes);
-		void Append(char Char);
+		void ProcessState();
 
 	private:
 		/****

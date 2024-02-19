@@ -37,7 +37,7 @@ namespace scratchpad
 		BytesWritten(0),
 		LineCount(1),
 		Row(0), Col(0),
-		ParsingState(xml_parsing_states::ParsingUnknown),
+		ParsingState(xml_parsing_states::ParsingStartTag),
 		Error(false), 
 		ErrorBuff("")
 	{
@@ -52,7 +52,7 @@ namespace scratchpad
 		BytesWritten(0),
 		LineCount(1),
 		Row(0), Col(0),
-		ParsingState(xml_parsing_states::ParsingUnknown),
+		ParsingState(xml_parsing_states::ParsingStartTag),
 		Error(false), 
 		ErrorBuff("")
 
@@ -180,15 +180,11 @@ namespace scratchpad
 	***** MAIN SOURCE PARSING METHOD
 	***** PARSES XML FILES OF COURSE
 	****/
-	xml_document* xml_source::Parse()
+	void xml_source::ProcessState()
 	{
-		xml_document* Doc = nullptr;
-
-		while(Buffer()->in_avail() > 0 && !Error)
+		switch(ParsingState)
 		{
-			TrimWS();
-
-			if(ParsingState == xml_parsing_states::ParsingDecl)
+			case xml_parsing_states::ParsingDeclAtts:
 			{
 				while(!Error && TryToParseNameToken('='))
 				{
@@ -212,7 +208,28 @@ namespace scratchpad
 
 					TrimWS();
 				}
+
+				break;
 			}
+
+			case xml_parsing_states::ParsingTypeAtts:
+			{
+
+				break;
+			}
+
+		}
+	}
+
+	xml_document* xml_source::Parse()
+	{
+		xml_document* Doc = nullptr;
+
+		while(Buffer()->in_avail() > 0 && !Error)
+		{
+			TrimWS();
+
+			ProcessState();
 
 			if(!Error)
 			{
@@ -225,28 +242,19 @@ namespace scratchpad
 					{
 						if(TryToParseDeclStart())
 						{
-							if(TryToSetParsingDeclState())
-							{
-								PushMarkup(XMLDeclStartTag.data());
-							}
+							PushMarkup(XMLDeclStartTag.data());
 
 							break;
 						}
 						else if(TryToParseTypeStart())
 						{
-							if(TryToSetParsingTypeState())
-							{
-								PushMarkup(XMLDocTypeStartTag.data());
-							}
+							PushMarkup(XMLDocTypeStartTag.data());
 
 							break;
 						}
 						else if(TryToParseCommentStart())
 						{
-							if(TryToSetParsingCommentState())
-							{
-								PushMarkup(CommentStartTag.data());
-							}
+							PushMarkup(CommentStartTag.data());
 
 							break;
 						}
@@ -286,7 +294,6 @@ namespace scratchpad
 
 					default:
 					{
-
 
 						break;
 					}
@@ -512,27 +519,6 @@ namespace scratchpad
         }
     }
 
-	inline bool xml_source::TryToSetParsingDeclState()
-	{
-		ParsingState = xml_parsing_states::ParsingDecl;
-
-		return true;
-	}
-
-	inline bool xml_source::TryToSetParsingTypeState()
-	{
-		ParsingState = xml_parsing_states::ParsingType;
-
-		return true;
-	}
-
-	inline bool xml_source::TryToSetParsingCommentState()
-	{
-		ParsingState = xml_parsing_states::ParsingComment;
-
-		return true;
-	}
-
 	inline bool xml_source::Match(const char* Bytes, size_t ByteCount)
 	{
 		if(ByteCount > Buffer()->in_avail())
@@ -546,7 +532,6 @@ namespace scratchpad
 
 		for(size_t Idx = 0; Idx < ByteCount; Idx++)
 		{
-			// char CDebug = Buffer()->sgetc();
 			if(Buffer()->sgetc() != Bytes[Idx])
 			{
 				Matched = false;
@@ -564,6 +549,8 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseStartTag(string TagText)
 	{
+		ParsingState = xml_parsing_states::ParsingStartTag;
+
 		if(Match(TagText.c_str(),
 			     TagText.size()))
 		{
@@ -583,12 +570,17 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseDeclStart()
 	{		
-		if(!TryToParseStartTag(XMLDeclStartTag.data()))
+		if(TryToParseStartTag(XMLDeclStartTag.data()))
 		{
+			ParsingState = xml_parsing_states::ParsingDeclAtts;
+		}
+		else
+		{
+			ParsingState = xml_parsing_states::ParsingUnknown;
+
 			Rewind(XMLDeclStartTag.size());
 
-			// set malformed name 
-			// token error
+			// set malformed name/token error
 			SetErrorMalformedDeclTag();
 		}
 
@@ -599,10 +591,15 @@ namespace scratchpad
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
+			ParsingState = xml_parsing_states::ParsingTypeAtts;
+		}
+		else
+		{
+			ParsingState = xml_parsing_states::ParsingUnknown;
+
 			Rewind(XMLDocTypeStartTag.size());
 
-			// set malformed name 
-			// token error
+			// set malformed name/token error
 			SetErrorMalformedTypeTag();
 		}
 
