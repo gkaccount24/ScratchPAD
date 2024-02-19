@@ -174,6 +174,9 @@ namespace scratchpad
 		void SetErrorMalformedCommentTag();
 		void SetErrorMissingAttVal();
 		void SetErrorUnclosedTag();
+		void SetErrorMissingQuotes();
+		void SetErrorMissingAttribVal();
+		void SetErrorMissingWS();
 
 		void SetErrorFileNotOpen(const char* XMLSourceDiskPath);
 		void SetErrorFailedToReadFile(const char* XMLSourceDiskPath);

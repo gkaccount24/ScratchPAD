@@ -37,6 +37,7 @@ namespace scratchpad
 		BytesWritten(0),
 		LineCount(1),
 		Row(0), Col(0),
+		ParsingState(xml_parsing_states::ParsingUnknown),
 		Error(false), 
 		ErrorBuff("")
 	{
@@ -51,6 +52,7 @@ namespace scratchpad
 		BytesWritten(0),
 		LineCount(1),
 		Row(0), Col(0),
+		ParsingState(xml_parsing_states::ParsingUnknown),
 		Error(false), 
 		ErrorBuff("")
 
@@ -80,6 +82,7 @@ namespace scratchpad
 		BytesWritten(RSource.BytesWritten),
 		LineCount(RSource.LineCount),
 		Row(RSource.Row), Col(RSource.Col),
+		ParsingState(RSource.ParsingState),
 		Error(RSource.Error), 
 		ErrorBuff(move(RSource.ErrorBuff))
 	{
@@ -187,101 +190,106 @@ namespace scratchpad
 
 			if(ParsingState == xml_parsing_states::ParsingDecl)
 			{
-				while(!Error && !TryToParseNameToken('='))
+				while(!Error && TryToParseNameToken('='))
 				{
-					/*** TryToParseNameToken() ONLY RETURNS TRUE WHEN
-					**** the delimiter is parsed, false 
-					**** if only parsed to whitespace
-					**** this way we keep the loop
-					**** for parsing attribute tokens
-					**** going
-					***/
+					NameTokens.push_back(WriteBuff);
+
+					Buffer()->sbumpc();
 
 					if(TryToParseLiteral())
 					{
-
-
+						if(xml_markup_attribute* Attribute = new xml_markup_attribute { NameTokens.back(), WriteBuff })
+						{
+							Markup.back()->Attributes.push_back(Attribute);
+						}
 					}
+
+					if(!IsWS())
+					{
+						SetErrorMissingWS();
+						break;
+					}
+
+					TrimWS();
 				}
 			}
 
-			switch(Buffer()->sgetc())
+			if(!Error)
 			{
-				/****
-				***** PARSE XML STARTING ELEMENT
-				****/
-				case '<':
+				switch(Buffer()->sgetc())
 				{
-					if(TryToParseDeclStart())
+					/****
+					***** PARSE XML STARTING ELEMENT
+					****/
+					case '<':
 					{
-						if(TryToSetParsingDeclState())
+						if(TryToParseDeclStart())
 						{
-							PushMarkup(XMLDeclStartTag.data());
-						}
+							if(TryToSetParsingDeclState())
+							{
+								PushMarkup(XMLDeclStartTag.data());
+							}
 
-						break;
-					}
-					else if(TryToParseTypeStart())
-					{
-						if(TryToSetParsingTypeState())
-						{
-							PushMarkup(XMLDocTypeStartTag.data());
-						}
-
-						break;
-					}
-					else if(TryToParseCommentStart())
-					{
-						if(TryToSetParsingCommentState())
-						{
-							PushMarkup(CommentStartTag.data());
-						}
-
-						break;
-					}
-					else
-					{
-						// advance input buffer
-						// fewer bytes to read;
-						Buffer()->sbumpc();
-
-						if(!TryToParseNameToken('>'))
-						{
-							// OutputLastError();
 							break;
 						}
+						else if(TryToParseTypeStart())
+						{
+							if(TryToSetParsingTypeState())
+							{
+								PushMarkup(XMLDocTypeStartTag.data());
+							}
+
+							break;
+						}
+						else if(TryToParseCommentStart())
+						{
+							if(TryToSetParsingCommentState())
+							{
+								PushMarkup(CommentStartTag.data());
+							}
+
+							break;
+						}
+						else
+						{
+							// advance input buffer
+							// fewer bytes to read;
+							Buffer()->sbumpc();
+
+							if(!TryToParseNameToken('>'))
+							{
+								// OutputLastError();
+								break;
+							}
+						}
+
+						break;
 					}
 
-					break;
-				}
-
-				/****
-				***** PARSE XML ENDING ELEMENT
-				****/
-				case '>':
-				{
-
-					break;
-				}
-
-				/****
-				***** PARSE LITERALS 
-				****/
-				case '\"':
-				{
-					if(!TryToParseLiteral())
+					/****
+					***** PARSE XML ENDING ELEMENT
+					****/
+					case '>':
 					{
 
+						break;
 					}
 
-					break;
-				}
+					/****
+					***** PARSE LITERALS
+					****/
+					case '\"':
+					{
+			
+						break;
+					}
 
-				default:
-				{
+					default:
+					{
 
 
-					break;
+						break;
+					}
 				}
 			}
 		}
@@ -321,6 +329,15 @@ namespace scratchpad
 		}
 	}
 
+	inline void xml_source::SetErrorMissingQuotes()
+	{
+		if(SetErrorState())
+		{
+			ErrorBuff << "[ERROR] literal value missing quotes"
+					  << endl;
+		}
+	}
+
 	inline void xml_source::SetErrorUnclosedTag()
 	{
 		if(SetErrorState())
@@ -354,6 +371,15 @@ namespace scratchpad
 		{ 
 			ErrorBuff << "[ERROR] illegal literal value\n";
 			ErrorBuff << "        received " << Buffer()->sgetc() << endl;
+		}
+	}
+
+	inline void xml_source::SetErrorMissingWS()
+	{
+		if(SetErrorState())
+		{ 
+			ErrorBuff << "[ERROR] missing required "
+				      << "whitespace\n";
 		}
 	}
 
@@ -393,8 +419,20 @@ namespace scratchpad
 
 	inline void xml_source::SetErrorMalformedCommentTag()
 	{
-		ErrorBuff << "[ERROR] malformed comment tag\n"
-				  << endl;
+		if(SetErrorState())
+		{
+			ErrorBuff << "[ERROR] malformed comment tag\n"
+					  << endl;
+		}
+	}
+
+	inline void xml_source::SetErrorMissingAttribVal()
+	{
+		if(SetErrorState())
+		{
+			ErrorBuff << "[ERROR] missing attrib val\n"
+					  << endl;
+		}
 	}
 
 	inline void xml_source::Rewind(size_t Count)
@@ -446,12 +484,12 @@ namespace scratchpad
 
 	inline void xml_source::Append(const char* Bytes)
 	{
-
+		WriteBuff.append(Bytes);
 	}
 
 	inline void xml_source::Append(char Char)
 	{
-
+		WriteBuff += Char;
 	}
 
     inline void xml_source::TrimWS()
@@ -592,16 +630,18 @@ namespace scratchpad
 		****                                          [#x37F - #x1FFF] | [#x200C - #x200D] | [#x2070 - #x218F] | 
 		****                                          [#x2C00 - #x2FEF] | [#x3001 - #xD7FF] | [#xF900 - #xFDCF] | 
 		****                                          [#xFDF0 - #xFFFD] | [#x10000 - #xEFFFF]*/
-		const uint8_t UpperCaseLower = StaticCast(int, 'A');
-		const uint8_t UpperCaseHigher = StaticCast(int, 'Z');
+		const int UpperCaseLower = StaticCast(int, 'A');
+		const int UpperCaseHigher = StaticCast(int, 'Z');
 
-		const uint8_t LowerCaseLower = StaticCast(int, 'a');
-		const uint8_t LowerCaseHigher = StaticCast(int, 'z');
+		const int LowerCaseLower = StaticCast(int, 'a');
+		const int LowerCaseHigher = StaticCast(int, 'z');
 
-		bool IsLower = (StaticCast(uint8_t, Buffer()->sgetc()) >= LowerCaseLower &&
-					    StaticCast(uint8_t, Buffer()->sgetc()) <= LowerCaseHigher);
-		bool IsUpper = (StaticCast(uint8_t, Buffer()->sgetc()) >= UpperCaseLower &&
-						StaticCast(uint8_t, Buffer()->sgetc()) <= UpperCaseHigher);
+		int DebugVal = Buffer()->sgetc();
+
+		bool IsLower = (StaticCast(int, Buffer()->sgetc()) >= LowerCaseLower &&
+					    StaticCast(int, Buffer()->sgetc()) <= LowerCaseHigher);
+		bool IsUpper = (StaticCast(int, Buffer()->sgetc()) >= UpperCaseLower &&
+						StaticCast(int, Buffer()->sgetc()) <= UpperCaseHigher);
 
 		bool IsUnderscore = Buffer()->sgetc() == '_';
 
@@ -627,6 +667,8 @@ namespace scratchpad
 			SetErrorIllegalNameStart();
 			return !Error;
 		}
+
+		WriteBuff.clear();
 
 		// reset byte counter
 		// to track name token size
@@ -655,30 +697,18 @@ namespace scratchpad
 
 				// advance buffer
 				// fewer bytes to read
-				Append(Buffer()->sbumpc());
+				Buffer()->sbumpc();
 			}
 		}
 
 		if(ParsedToDelim || ParsedToWS)
 		{
-			for(size_t I = 0; I < BytesRead; I++)
-			{
-				Buffer()->sungetc();
-			}
+			Rewind(BytesRead);
 
-			// make temp buff
-			string TempBuff;
-			TempBuff.resize(BytesRead);
+			WriteBuff.resize(BytesRead);
 
-			// extract bytes from 
-			// buffer into temp buffer
-			Buffer()->sgetn(TempBuff.data(), TempBuff.size());
-
-			Append(TempBuff.c_str());
-
-			// save token text 
-			// on token stack
-			NameTokens.push_back(move(TempBuff));
+			Buffer()->sgetn(WriteBuff.data(), 
+							WriteBuff.size());
 		}
 
 		return ParsedToDelim && !Error;
@@ -688,12 +718,13 @@ namespace scratchpad
 	{
 		if(Buffer()->sgetc() != '\"')
 		{
-			// advance buffer beyond
-			// the initial quote
-
-			return false;
+			SetErrorMissingAttribVal();
+			return !Error;
 		}
 
+		Buffer()->sbumpc();
+
+		WriteBuff.clear();
 		BytesRead = 0;
 
 		const char IllegalCharacters[] 
@@ -712,10 +743,24 @@ namespace scratchpad
 				break;
 			}
 
-			Append(Buffer()->sbumpc());
+			Buffer()->sbumpc();
 			BytesRead++;
 		}
 
+		if(Buffer()->sgetc() != '\"')
+		{
+			SetErrorMissingQuotes();
+			return !Error;
+		}
+
+		Rewind(BytesRead);
+
+		WriteBuff.resize(BytesRead);
+
+		Buffer()->sgetn(WriteBuff.data(), 
+						WriteBuff.size());
+
+		Buffer()->sbumpc();
 		return !Error;
 	}
 }
