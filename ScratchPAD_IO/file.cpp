@@ -287,7 +287,7 @@ namespace scratchpad
         IsSync = false;
         IsLoaded = false;
 
-        if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk())
+        // if(HasReadAccess(DesiredAccess) && !SyncInternalBufferWithDisk())
         {
             // LogError("failed to sync node.\n", -1);
 

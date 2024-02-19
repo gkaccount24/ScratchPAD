@@ -7,6 +7,7 @@
 #define Extract(SelectedByte)(*(SelectedByte))
 #define AtEndOfBuffer(CurSel, BufferEnd)((CurSel) == (BufferEnd))
 
+#if 0
 namespace scratchpad
 {
 	/**
@@ -600,3 +601,4 @@ namespace scratchpad
 		}
 	}
 }
+#endif

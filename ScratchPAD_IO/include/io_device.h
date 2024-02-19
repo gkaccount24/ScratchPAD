@@ -21,107 +21,102 @@ namespace scratchpad
 	**** PURE VIRTUAL IO_DEVICE
 	****/
 
-	enum class io_device_type
-	{
-		BufferIO,
-		ConsoleIO,
-		FileIO
-	};
+	//enum class io_device_type
+	//{
+	//	BufferIO,
+	//	FileIO
+	//};
 
-	/***
-	**** IO_STRINGBUFFER
-	****/
+ //   template<typename io_device_t>
+ //   class io_buffer
+ //   {
 
-	class io_stringbuffer
-	{
-	public:
-                 io_stringbuffer(io_stringbuffer&& StringBuffer);
+ //   public:
+	//	 io_buffer() = default;
+ //       ~io_buffer() = default;
 
-                 io_stringbuffer(string&& Buffer);
-                 io_stringbuffer(string Buffer);
-                 io_stringbuffer();
-		virtual ~io_stringbuffer();
+ //   public:
+ //       size_t Write(const char* TransmitBuf, size_t Count);
+ //       size_t Read(char* ReceiveBuf, size_t Count);
 
-		size_t Write(const char* Bytes, size_t Count);
-		size_t Read(char* ReceiveBuf, size_t Count);
+ //       io_buffer& operator<<(const char* TransmitBuf);
+ //       io_buffer& operator>>(const char* ReceiveBuf);
 
-	public:
-		string Data;
-	};
+ //       io_device_t Data;
+ //   };
 
-	/***
-	**** FILEBUF DEVICE
-	****/
+	///***
+	//**** FILEBUF DEVICE
+	//****/
 
-	class io_filebuffer: public io_stringbuffer
-	{
-	public:
-				 io_filebuffer(io_filebuffer&& FileBuffer);
-				 io_filebuffer();
-				 io_filebuffer(const char* FileBufDiskPath);
-		virtual ~io_filebuffer();
+	//class io_filebuffer
+	//{
+	//public:
+	//	 io_filebuffer(io_filebuffer&& FileBuffer);
+	//	 io_filebuffer();
+	//	 io_filebuffer(const char* FileBufDiskPath);
+	//	~io_filebuffer();
 
-		virtual size_t Write(const char* Bytes, size_t Count);
-		virtual size_t Read(char* ReceiveBuf, size_t Count);
+ //   public: // REIMPLEMENTED PURE VIRTUAL METHODS
+	//	virtual size_t Write(const char* Bytes, size_t Count);
+	//	virtual size_t Read(char* ReceiveBuf, size_t Count);
 
-		bool Open(const char* Path, DWORD DesiredAccess,
-                  DWORD ShareAccess, DWORD CreateFlags,
-                  DWORD AttributeFlags, LPSECURITY_ATTRIBUTES Security = 0);
+ //   public:
+	//	bool Open(const char* Path, DWORD DesiredAccess,
+ //                 DWORD ShareAccess, DWORD CreateFlags,
+ //                 DWORD AttributeFlags, LPSECURITY_ATTRIBUTES Security = 0);
+ //       bool OpenForReading(const char* Path);
+ //       bool OpenForWriting(const char* Path, bool OverWrite);
+ //       bool OpenForReadAndWrite(const char* Path, bool OverWrite);
+ //       bool Create(const char* Path, bool OverWrite);
+ //       void Close();
 
-        bool OpenForReading(const char* Path);
-        bool OpenForWriting(const char* Path, bool OverWrite);
-        bool OpenForReadAndWrite(const char* Path, bool OverWrite);
+ //   public:
+ //       const char* BeginBuffer();
+ //       const char* EndBuffer();
 
-        bool Create(const char* Path, bool OverWrite);
+ //   private:
+ //       bool TryToSetASCII();
+ //       bool TryToSetUTF8BOM();
+ //       bool TryToSetUTF16BOM();
+ //       bool TryToSetBOMAndFileEncoding();
 
-        void Close();
+ //   public:
+ //       void GetDirectoryContents(const char* Path, vector<file*>& Files);
 
-    public:
-        const char* BeginBuffer();
-        const char* EndBuffer();
+ //   public:
+ //       void StatFile();
 
-    private:
-        bool TryToSetASCII();
-        bool TryToSetUTF8BOM();
-        bool TryToSetUTF16BOM();
-        bool TryToSetBOMAndFileEncoding();
+ //       size_t GetSizeOnDisk();
 
-    public:
-        void GetDirectoryContents(const char* Path, vector<file*>& Files);
+ //   private:
+ //       bool SyncInternalBufferWithDisk();
+ //       bool ParseFilename();
 
-    public:
-        void StatFile();
+	//private:
+ //       HANDLE HandleId;
 
-        size_t GetSizeOnDisk();
+ //       DWORD DesiredAccess;
+ //       DWORD ShareAccess;
+ //       DWORD CreateFlags;
+ //       DWORD AttributeFlags;
 
-    private:
-        bool SyncInternalBufferWithDisk();
-        bool ParseFilename();
+ //       file_encodings Encoding;
+ //       file_endianness Endianness;
+ //       bool EncodingAndBOMSet;
 
-	private:
-        HANDLE HandleId;
+ //       string AbsPath;
+ //       string Name;
 
-        DWORD DesiredAccess;
-        DWORD ShareAccess;
-        DWORD CreateFlags;
-        DWORD AttributeFlags;
+ //   public:
 
-        file_encodings Encoding;
-        file_endianness Endianness;
-        bool EncodingAndBOMSet;
+ //       bool IsDir;
+ //       bool IsSync;
+ //       bool IsOpen;
+ //       bool IsLoaded;
 
-        string AbsPath;
-        string Name;
-
-    public:
-
-        bool IsDir;
-        bool IsSync;
-        bool IsOpen;
-        bool IsLoaded;
-
-        WIN32_FILE_ATTRIBUTE_DATA Stat;
-    };
+ //       WIN32_FILE_ATTRIBUTE_DATA Stat;
+ //   };
 }
 
 #endif

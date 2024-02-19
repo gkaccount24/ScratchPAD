@@ -5,30 +5,214 @@
 *** SCRATCHPAD INCLUDES
 ***/
 
-#include "io_device.h"
+#include "xml_document.h"
+#include "xml_markup.h"
 
 /***
 *** C++ INCLUDES
 ***/
 
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
 #include <string>
 
 namespace scratchpad
 {
+	using std::streambuf;
+	using std::stringstream;
+	using std::fstream;
+	using std::vector;
 	using std::string;
+
+	using std::cout;
+	using std::endl;
+
+	enum class xml_parsing_states
+	{
+		/*****
+		****** Start - tag
+		****** [40]   	STag	   :: = '<' Name(S Attribute) * S ? '>'[WFC:Unique Att Spec]
+		****** [41]   	Attribute	   :: = Name Eq AttValue[VC:Attribute Value Type]
+		****** [WFC:No External Entity References]
+		****** [WFC:No < in Attribute Values]
+		*****/
+		ParsingStartTag = 0,
+
+		/*****
+		****** ETag	   :: = '</' Name S ? '>'
+		*****/
+		ParsingEndTag = 1,
+
+		/*****
+		****** [45]   	elementdecl	   ::=   	'<!ELEMENT' S Name S contentspec S? '>'	[VC: Unique Element Type Declaration]
+		****** [46]   	contentspec	   ::=   	'EMPTY' | 'ANY' | Mixed | children 
+		*****/
+		ParsingElementDecl = 2,
+
+		/**** [52]   	AttlistDecl	   :: = '<!ATTLIST' S Name AttDef * S ? '>'
+		***** [53]   	AttDef	   :: = S Name S AttType S DefaultDecl
+		****/
+		ParsingAttributeListDecl = 3,
+
+		/****
+		***** [55]   	StringType	   ::=   	'CDATA'
+		****/
+		ParsingStringTypeAtt = 4,
+
+		/****
+		***** [56]   	TokenizedType	   ::=   	'ID'	[VC: ID]
+		****/
+		ParsingTokenizedTypeAtt = 5,
+
+		/****
+		***** [57]   	EnumeratedType	   ::=   	NotationType | Enumeration
+	    ***** [58]   	NotationType	   ::=   	'NOTATION' S '(' S? Name (S? '|' S? Name)* S? ')' 	[VC: Notation Attributes]
+		*****			[VC: One Notation Per Element Type]
+		*****			[VC: No Notation on Empty Element]
+		*****			[VC: No Duplicate Tokens]
+		***** [59]   	Enumeration	   ::=   	'(' S? Nmtoken (S? '|' S? Nmtoken)* S? ')'	[VC: Enumeration]
+		*****			[VC: No Duplicate Tokens]
+		****/
+		ParsingEnumeratedTypeAtt = 6,
+
+		/****
+		***** [56]   	TokenizedType  ::=   	'ID'	[VC: ID]
+		***** [82]   	NotationDecl   ::=   	'<!NOTATION' S Name S (ExternalID | PublicID) S? '>'	[VC: Unique Notation Name]
+		***** [83]   	PublicID	   ::=   	'PUBLIC' S PubidLiteral
+		****/
+		ParsingNotationDecl = 7,
+
+		/****
+		***** max number of 
+		***** parsing states
+		****/
+		ParsingStateCount = 8
+	};
+
+	struct xml_parsing_state
+	{
+		/**** STATE NAME
+		****/
+		xml_parsing_states Idx;
+
+		/****
+		***** Character single or 
+		***** multibyte chars being lexed
+		****/
+		size_t			   CharValRangeBegin;
+		size_t			   CharValRangeEnd;
+
+		string			   Charset;
+
+		/****
+		***** allowed transitions
+		****/
+		vector<xml_parsing_states> Transitions;
+	};
 
 	class xml_source
 	{
 
 	public:
-		xml_source(const char* Path);
-		xml_source(xml_source&& RSource) noexcept;
+		xml_source(string XMLSourceBuff);
+		xml_source(fstream&& XMLSourceFile, 
+				   string XMLSourceDiskPath);
 
 		~xml_source();
 
 	public:
-		const char*		 DiskPath;
-		io_stringbuffer& Buffer;
+		/****
+		***** MOVE CONSTRUCTOR FILE 
+		***** FOR XML SOURCE
+		****/
+		xml_source(xml_source&& RSource) noexcept;
+
+	public:
+		xml_document* Parse();
+		void		  Close();
+
+	private:
+		void SetSourceBuff(const char* XMLSourceBuff);
+		bool ReadSourceFile(fstream&& XMLSourceFile, 
+							const char* XMLSourceDiskPath);
+	private:
+		streambuf* Buffer();
+
+		bool IsNL();
+		bool IsWS();
+		void TrimWS();
+
+		bool TryToParseComment();
+		bool TryToParseNameStart();
+		bool TryToParseNameToken(char Delim);
+		bool TryToParseLiteral();
+		bool TryToParseDecl();
+		bool TryToParseType();
+
+		bool Match(const char* Bytes, size_t ByteCount);
+
+	private:
+		/****
+		***** XML MARKUP
+		***** BUILDER METHODS
+		****/
+		void PushMarkup(const char* NameToken, size_t Length);
+		void PopMarkup();
+
+	private: 
+		/****
+		***** ERROR 
+		***** MESSAGES
+		****/
+		bool SetErrorState();
+		void SetErrorIllegalNameStart(char C);
+		void SetErrorIllegalLiteralVal(char C);
+		void SetErrorMissingAttVal();
+		void SetErrorUnclosedTag();
+
+		void SetErrorFileNotOpen(const char* XMLSourceDiskPath);
+		void SetErrorFailedToReadFile(const char* XMLSourceDiskPath);
+
+		string GetLastError();
+		void OutputLastError();
+
+	public:
+		/****
+		***** SOURCE
+		***** STRING
+		***** DATA
+		****/
+		fstream		 SourceFile;
+		stringstream SourceBuff;
+		size_t		 SourceBuffSize;
+
+		/****
+		***** LEXER 
+		***** META DATA
+		****/
+		size_t WSSkipped;
+		size_t BytesRead;
+		size_t BytesWritten;
+		size_t LineCount;
+		size_t Row;
+		size_t Col;
+
+		/****
+		***** ERROR
+		***** DATA
+		****/
+		bool		 Error;
+		stringstream ErrorBuff;
+
+		/****
+		***** NAME
+		***** TOKENS
+		***** STACK
+		****/
+		vector<string>	    NameTokens;
+		vector<xml_markup*> Markup;
 	};
 }
 

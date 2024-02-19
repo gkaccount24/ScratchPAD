@@ -1,26 +1,31 @@
-#include "xml_document.h"
-#include "xml_reader.h"
 
+#include "xml_source.h"
+#include "xml_document.h"
+
+#include <fstream>
+#include <sstream>
 #include <iostream>
 
+using std::fstream;
+using std::stringstream;
+
 using std::cout;
-using std::endl;
+using std::cin;
 
-
-enum exit_code
+enum class exit_code
 {
 	Success			= 0,
-
-	// ERRORS
 	FailedToOpenDoc = -100,
 	FailedToReadDoc = -101
 };
 
-#define SAMPLE_FILE_COUNT 6
-
 int main(int ArgCount, char* ArgV[])
 {
-	exit_code ExitCode = Success;
+	string DiskPath("Z:\\data\\xml samples\\books.xml");
+	fstream SourceFile(DiskPath);
 
-	return ExitCode;
+	scratchpad::xml_source XMLSource(move(SourceFile), DiskPath);
+	scratchpad::xml_document* XMLDoc = XMLSource.Parse();
+
+	return 0;
 }

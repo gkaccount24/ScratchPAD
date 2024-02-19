@@ -2,46 +2,44 @@
 
 namespace scratchpad
 {
-	xml_document::xml_document(xml_source&& Source):
-		Markup(nullptr),
-		ParsedDecl(false)
+	xml_document::xml_document()
 	{
 
-	}
-
-	xml_document::xml_document():
-		Markup(nullptr),
-		ParsedDecl(false)
-	{
 	}
 
 	xml_document::~xml_document()
 	{
-		for(size_t Index = 0; Index < XMLDocumentAttributeEnumIndex(Count); Index++)
+		for(size_t Index = 0; Index < (int) xml_decl_attributes::Count; Index++)
 		{
-			Attributes[Index].clear();
-			Attributes[Index].shrink_to_fit();
+			Decl[Index].clear();
+			Decl[Index].shrink_to_fit();
 		}
 	}
 
-	void xml_document::SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, string Value)
+	void xml_document::SetDocAttribute(xml_decl_attributes AttributeEnum, string Value)
 	{
-		if(AttributeEnum == XMLDocumentAttributeEnum(Version))
+		if(AttributeEnum == xml_decl_attributes::Version)
 		{
-			Attributes[XMLDocumentAttributeEnumIndex(Version)] = Value;
+			Decl[(int) xml_decl_attributes::Version] = Value;
 		}
-		else if(AttributeEnum == XMLDocumentAttributeEnum(Encoding))
+		else if(AttributeEnum == xml_decl_attributes::Encoding)
 		{
-			Attributes[XMLDocumentAttributeEnumIndex(Encoding)] = Value;
+			Decl[(int) xml_decl_attributes::Encoding] = Value;
 		}
-		else if(AttributeEnum == XMLDocumentAttributeEnum(Standalone))
+		else if(AttributeEnum == xml_decl_attributes::Standalone)
 		{
-			Attributes[XMLDocumentAttributeEnumIndex(Standalone)] = Value;
+			Decl[(int) xml_decl_attributes::Standalone] = Value;
 		}
 	}
 
-	bool xml_document::ParsedDeclaration()
+	void xml_document::PushMarkup(string&& Text)
 	{
-		return ParsedDecl;
+		move(Text);
+
+	}
+
+	void xml_document::PopMarkup()
+	{
+
 	}
 }

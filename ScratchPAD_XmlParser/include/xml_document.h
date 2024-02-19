@@ -1,16 +1,11 @@
 #ifndef XML_DOCUMENT_H
 #define XML_DOCUMENT_H
 
-#include "xml_source.h"
 #include "xml_markup.h"
-
-#define XMLDocumentAttributeEnum(Attribute)(xml_builtin_doc_attributes::Attribute)
-#define XMLDocumentAttributeEnumIndex(Attribute)((int)xml_builtin_doc_attributes::Attribute)
-#define XMLDocumentAttributeEnumFromIndex(Index)((xml_builtin_doc_attributes)Index)
 
 namespace scratchpad
 {
-	enum class xml_builtin_doc_attributes
+	enum class xml_decl_attributes
 	{
 		Version = 0,
 		Encoding = 1,
@@ -20,29 +15,27 @@ namespace scratchpad
 
 	class xml_document
 	{
+		friend class xml_source;
 
 	public:
-		xml_document(xml_source&& Source);
-
-		// default constructors
-		xml_document();
+		 xml_document();
 		~xml_document();
 
 	public:
-		void SetDocAttribute(xml_builtin_doc_attributes AttributeEnum, string Value);
-		bool ParsedDeclaration();
+		void SetDocAttribute(xml_decl_attributes AttributeEnum, string Value);
 
 	private:
+		void PushMarkup(string&& Text);
+		void PopMarkup();
+
+	private:
+		// all the things, just the
+		// document markup tree
 		xml_markup* Markup;
-		string		Attributes[XMLDocumentAttributeEnumIndex(Count)];
 
-	public:
+		// document specific data members
+		string		Decl[(int) xml_decl_attributes::Count];
 		bool		ParsedDecl;
-
-	private:
-		xml_document(const xml_document& Rhs) = delete;
-		xml_document(xml_document&& Rhs) = delete;
-
 	};
 }
 

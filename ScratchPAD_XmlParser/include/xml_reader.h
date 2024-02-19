@@ -9,7 +9,10 @@
 #include <iostream>
 #include <string>
 
-namespace scratchpad
+#if 0
+
+// namespace scratchpad
+/	// and col
 {
 	using std::reverse;
 	using std::cout;
@@ -134,5 +137,6 @@ namespace scratchpad
 		scratchpad::logger* Logger;
 	};
 }
+#endif
 
 #endif
