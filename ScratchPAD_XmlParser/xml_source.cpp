@@ -190,8 +190,6 @@ namespace scratchpad
 		ParsingState = NextState;
 	}
 
-	
-
 	/****
 	***** MAIN SOURCE PARSING METHOD
 	***** PARSES XML FILES OF COURSE
@@ -635,12 +633,27 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseEndTag(string TagText)
 	{
+		SwitchState(xml_parsing_states::ParsingEndTag);
+
+		if(Match(TagText.c_str(),
+			     TagText.size()))
+		{
+			if(!IsWS())
+			{
+				// grab last byte
+				// read for error 
+				// reporting
+				BytesRead++;
+
+				return false;
+			}
+		}
 		return !Error;
 	}
 
 	inline bool xml_source::TryToParseStartTag(string TagText)
 	{
-		ParsingState = xml_parsing_states::ParsingStartTag;
+		SwitchState(xml_parsing_states::ParsingStartTag);
 
 		if(Match(TagText.c_str(),
 			     TagText.size()))
@@ -661,13 +674,26 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseDeclEnd()
 	{
+		if(TryToParseEndTag(XMLDeclEndTag.data()))
+		{
+			SwitchState(xml_parsing_states::ParsingStartTag);
+		}
+		else
+		{
+			SwitchState(xml_parsing_states::ParsingUnknown);
+
+			Rewind(XMLDeclEndTag.size());
+
+			// set malformed name/token error
+			SetErrorMalformedDeclTag();
+		}
 
 		return !Error;
 	}
 
 	inline bool xml_source::TryToParseDeclStart()
 	{		
-		if(TryToParseStartTag(XMLDeclStartTag.data()))
+		if(TryToParseStartTag(XMLDeclEndTag.data()))
 		{
 			SwitchState(xml_parsing_states::ParsingDeclAtts);
 		}
@@ -686,7 +712,7 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseTypeEnd()
 	{
-		return true;
+		return !Error;
 	}
 
 	inline bool xml_source::TryToParseTypeStart()
@@ -708,9 +734,9 @@ namespace scratchpad
 		return !Error;
 	}
 
-	inline bool xml_source::TryToParseCommendEnd()
+	inline bool xml_source::TryToParseCommentEnd()
 	{
-
+		return !Error;
 	}
 
 	inline bool xml_source::TryToParseCommentStart()
