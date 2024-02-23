@@ -148,9 +148,16 @@ namespace scratchpad
 		bool TryToParseLiteral();
 
 		bool TryToParseStartTag(string TagText);
+		bool TryToParseEndTag(string TagText);
+
 		bool TryToParseDeclStart();
+		bool TryToParseDeclEnd();
+
 		bool TryToParseTypeStart();
+		bool TryToParseTypeEnd();
+
 		bool TryToParseCommentStart();
+		bool TryToParseCommentEnd();
 
 		void ProcessState();
 		void LexBuff();

@@ -190,6 +190,8 @@ namespace scratchpad
 		ParsingState = NextState;
 	}
 
+	
+
 	/****
 	***** MAIN SOURCE PARSING METHOD
 	***** PARSES XML FILES OF COURSE
@@ -312,8 +314,51 @@ namespace scratchpad
 					break;
 				}
 
+				case '?':
+				{
+					if(TryToParseDeclEnd())
+					{
+						PushMarkup(XMLDeclEndTag.data());
+
+						break;
+					}
+
+					break;
+				}
+
+				case '-':
+				{
+					if(TryToParseCommentEnd())
+					{
+						PushMarkup(CommentEndTag.data());
+
+						break;
+					}
+					break;
+				}
+
 				case '>':
 				{
+					if(TryToParseTypeStart())
+					{
+						PushMarkup(XMLDocTypeStartTag.data());
+
+						break;
+					}
+					
+					else
+					{
+						// advance input buffer
+						// fewer bytes to read;
+						Buffer()->sbumpc();
+
+						if(!TryToParseNameToken('>'))
+						{
+							// OutputLastError();
+							break;
+						}
+					}
+
 
 					break;
 				}
@@ -588,6 +633,11 @@ namespace scratchpad
 		return Matched && !Error;
 	}
 
+	inline bool xml_source::TryToParseEndTag(string TagText)
+	{
+		return !Error;
+	}
+
 	inline bool xml_source::TryToParseStartTag(string TagText)
 	{
 		ParsingState = xml_parsing_states::ParsingStartTag;
@@ -605,6 +655,12 @@ namespace scratchpad
 				return false;
 			}
 		}
+
+		return !Error;
+	}
+
+	inline bool xml_source::TryToParseDeclEnd()
+	{
 
 		return !Error;
 	}
@@ -628,6 +684,11 @@ namespace scratchpad
 		return !Error;
 	}
 
+	inline bool xml_source::TryToParseTypeEnd()
+	{
+		return true;
+	}
+
 	inline bool xml_source::TryToParseTypeStart()
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
@@ -645,6 +706,11 @@ namespace scratchpad
 		}
 
 		return !Error;
+	}
+
+	inline bool xml_source::TryToParseCommendEnd()
+	{
+
 	}
 
 	inline bool xml_source::TryToParseCommentStart()
