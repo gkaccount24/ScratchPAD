@@ -5,6 +5,15 @@
 
 namespace scratchpad
 {
+	enum class xml_markup_types
+	{
+		DocDeclTag,
+		DocTypeTag,
+		CommentTag,
+		ElementType,
+		EntityDecl,
+	};
+
 	struct xml_markup_attribute
 	{
 		string Name;
@@ -15,35 +24,28 @@ namespace scratchpad
 	***** MARKUP CLASS
 	****/
 
+#define DATA public
+
 	class xml_markup
 	{
 
 	public:
-		xml_markup(string StartTag);
-		xml_markup(string StartTag,
+		xml_markup(xml_markup_types MarkupType, 
+				   string StartTag);
+		xml_markup(xml_markup_types MarkupType,
+				   string StartTag,
 				   string EndTag);
+
 		~xml_markup();
 
-		/***
-		*** STATIC XML MARKUP METHODS
-		**/
+	DATA:
+		xml_markup_types Type;
+		string			 StartTag;
+		string			 EndTag;
+		string			 Text;
 
-	public:
-		static xml_markup* Create(const char* FirstLexeme,
-								  const char* LastLexeme);
-		static xml_markup* Create(const char* NameToken,
-								  size_t Length);
-
-	public:
-		string StartTag;
-		string EndTag;
-		string Text;
-
-		// parsed/preconfigured markup attributes
 		vector<xml_markup_attribute*> Attributes;
-
-		// child markup
-		vector<xml_markup*> Children;
+		vector<xml_markup*>			  Children;
 	};
 }
 

@@ -170,11 +170,12 @@ namespace scratchpad
 		}
 	}
 
-	inline void xml_source::PushMarkup(string NameToken)
+	inline void xml_source::PushMarkup(xml_markup_types MarkupType, 
+									   string MarkupText)
 	{
 		xml_markup* MarkupNode = nullptr;
 
-		if(MarkupNode = new xml_markup(move(NameToken)))
+		if(MarkupNode = new xml_markup(MarkupType, move(MarkupText)))
 		{
 			if(!Markup.empty())
 			{
@@ -187,8 +188,16 @@ namespace scratchpad
 
 	void xml_source::SwitchState(xml_parsing_states NextState)
 	{
-		LastParsingState = ParsingState;
-		ParsingState = NextState;
+		if(ParsingState != NextState)
+		{
+			LastParsingState = ParsingState;
+			ParsingState = NextState;
+		}
+	}
+
+	bool xml_source::StateMatches(xml_parsing_states XMLParsingState)
+	{
+		return ParsingState == XMLParsingState;
 	}
 
 	/****
@@ -197,6 +206,8 @@ namespace scratchpad
 	****/
 	void xml_source::ProcessState()
 	{
+		char DebugChar = Buffer()->sgetc();
+
 		switch(ParsingState)
 		{
 			case xml_parsing_states::ParsingDeclAtts:
@@ -272,6 +283,8 @@ namespace scratchpad
 	{
 		if(!Error)
 		{
+			char DebugChar = Buffer()->sgetc();
+
 			switch(Buffer()->sgetc())
 			{
 				/****
@@ -279,69 +292,98 @@ namespace scratchpad
 				****/
 				case '<':
 				{
-					if(TryToParseDeclStart())
+					if(!StateMatches(xml_parsing_states::ParsingStartTag))
 					{
-						PushMarkup(XMLDeclStartTag.data());
+						SetErrorEncounteredInvalidStartTag();
 
 						break;
 					}
-					else if(TryToParseTypeStart())
-					{
-						PushMarkup(XMLDocTypeStartTag.data());
 
-						break;
-					}
-					else if(TryToParseCommentStart())
+					if(Markup.empty())
 					{
-						PushMarkup(CommentStartTag.data());
+						if(TryToParseDeclStart())
+						{
+							PushMarkup(xml_markup_types::DocDeclTag,
+									   XMLDeclStartTag.data());
 
-						break;
+							break;
+						}
 					}
 					else
 					{
-						// advance input buffer
-						// fewer bytes to read;
-						Buffer()->sbumpc();
-
-						if(!TryToParseNameToken('>'))
+						if(TryToParseTypeStart())
 						{
-							// OutputLastError();
+							PushMarkup(xml_markup_types::DocTypeTag,
+									   XMLDocTypeStartTag.data());
+
 							break;
+						}
+						else if(TryToParseCommentStart())
+						{
+							PushMarkup(xml_markup_types::CommentTag,
+									   CommentStartTag.data());
+
+							break;
+						}
+						else
+						{
+							// advance input buffer
+							// fewer bytes to read;
+							Buffer()->sbumpc();
+
+							if(!TryToParseNameToken('>'))
+							{
+								// OutputLastError();
+								break;
+							}
 						}
 					}
 
 					break;
 				}
-
 				case '?':
 				{
-					if(TryToParseDeclEnd())
+					if(!TryToParseDeclEnd())
 					{
-						PushMarkup(XMLDeclEndTag.data());
+						// error, not sure what
+						// this error would be
 
+						SetErrorMalformedDeclTag();
 						break;
 					}
 
+					// set end tag
+					Markup.back()->EndTag = XMLDeclEndTag.data();
+
 					break;
 				}
-
 				case '-':
 				{
-					if(TryToParseCommentEnd())
+					if(!TryToParseCommentEnd())
 					{
-						PushMarkup(CommentEndTag.data());
+						// error, not sure what
+						// this error would be
 
+						SetErrorMalformedCommentTag();
 						break;
 					}
+
+					// set end tag
+					Markup.back()->EndTag = CommentEndTag.data();
+
 					break;
 				}
-
 				case '>':
 				{
-					if(TryToParseTypeEnd())
+					if(Markup.back()->Type == xml_markup_types::DocTypeTag)
 					{
+						if(!TryToParseTypeEnd())
+						{
+							SetErrorMissingEndTag(XMLDocTypeEndTag.data());
+						}
 
-						break;
+						// set end tag
+						Markup.back()->EndTag = XMLDocTypeEndTag.data();
 					}
 					else
 					{
@@ -368,7 +410,12 @@ namespace scratchpad
 
 		while(Buffer()->in_avail() > 0 && !Error)
 		{
+			char DebugChar = Buffer()->sgetc();
+
 			TrimWS();
+
+			DebugChar = Buffer()->sgetc();
+
 			ProcessState();
 			LexBuff();
 		}
@@ -390,6 +437,19 @@ namespace scratchpad
 		return !Error;
 	}
 
+	inline void xml_source::SetErrorMissingEndTag(string ExpectedText)
+	{
+		if(SetErrorState())
+		{
+			ReadBuff(BytesRead);
+
+			ErrorBuff << "error missing end tag\n"
+					  << "received token: " << ExtraStringBuff 
+					  << "expected token: " << ExpectedText
+					  << endl;
+		}
+	}
+
 	inline void xml_source::SetErrorMissingXMLVersionAttribute()
 	{
 		if(SetErrorState())
@@ -403,8 +463,6 @@ namespace scratchpad
 	{
 		if(SetErrorState())
 		{
-
-
 			ErrorBuff << "out of order decl attribute"
 					  << endl;
 		}
@@ -525,6 +583,18 @@ namespace scratchpad
 		}
 	}
 
+	inline void xml_source::SetErrorEncounteredInvalidStartTag()
+	{
+		if(SetErrorState())
+		{
+			ReadBuff(BytesRead);
+
+			ErrorBuff << "[ERROR] invalid start tag encountered\n"
+					  << "        START TAG" << ExtraStringBuff 
+					  << endl;
+		}
+	}
+
 	inline void xml_source::SetErrorMissingAttribVal()
 	{
 		if(SetErrorState())
@@ -565,6 +635,25 @@ namespace scratchpad
 	inline streambuf* xml_source::Buffer()
 	{
 		return SourceBuff.rdbuf();
+	}
+
+	void xml_source::ReadBuff(size_t Count)
+	{
+		size_t BytesToRead = Count;
+
+		if(BytesToRead > Buffer()->in_avail())
+		{
+			BytesToRead = Buffer()->in_avail();
+		}
+
+		if(!ExtraStringBuff.empty())
+		{
+			ExtraStringBuff.clear();
+		}
+
+		ExtraStringBuff.resize(BytesToRead);
+
+		Buffer()->sgetn(ExtraStringBuff.data(), BytesToRead);
 	}
 
     inline bool xml_source::IsNL()
@@ -633,8 +722,8 @@ namespace scratchpad
 	{
 		SwitchState(xml_parsing_states::ParsingEndTag);
 
-		if(Match(TagText.c_str(),
-			     TagText.size()))
+		if(Match(TagText.data(),
+				 TagText.size()))
 		{
 			if(!IsWS())
 			{
@@ -646,6 +735,7 @@ namespace scratchpad
 				return false;
 			}
 		}
+
 		return !Error;
 	}
 
@@ -769,7 +859,7 @@ namespace scratchpad
 	{
 		if(!TryToParseStartTag(CommentStartTag.data()))
 		{
-			Rewind(XMLDocTypeStartTag.size());
+			Rewind(CommentStartTag.size());
 
 			// set malformed name 
 			// token error

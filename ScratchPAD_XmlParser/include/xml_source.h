@@ -108,6 +108,7 @@ namespace scratchpad
 	{
 
 	public:
+
 		xml_source(string XMLSourceBuff);
 		xml_source(fstream&& XMLSourceFile, 
 				   string XMLSourceDiskPath);
@@ -133,11 +134,13 @@ namespace scratchpad
 		void Rewind(size_t Count);
 	private:
 		streambuf* Buffer();
+		void ReadBuff(size_t Count);
 
 		bool IsNL();
 		bool IsWS();
 		void TrimWS();
 
+		bool StateMatches(xml_parsing_states XMLParsingState);
 		void SwitchState(xml_parsing_states NextState);
 
 		bool Match(const char* Bytes, 
@@ -167,7 +170,9 @@ namespace scratchpad
 		***** XML MARKUP
 		***** BUILDER METHODS
 		****/
-		void PushMarkup(string MarkupText);
+		void PushMarkup(xml_markup_types MarkupType, 
+						string MarkupText);
+
 		void PopMarkup();
 
 	private: 
@@ -179,6 +184,7 @@ namespace scratchpad
 		void SetErrorIllegalNameStart();
 		void SetErrorIllegalLiteralVal();
 		void SetErrorMalformedDeclTag();
+		void SetErrorMissingEndTag(string ExpectedText);
 		void SetErrorMalformedTypeTag();
 		void SetErrorMalformedCommentTag();
 		void SetErrorMissingAttVal();
@@ -187,8 +193,11 @@ namespace scratchpad
 		void SetErrorMissingAttribVal();
 		void SetErrorMissingWS();
 
+		void SetErrorEncounteredInvalidStartTag();
+
 		void SetErrorMissingXMLVersionAttribute();
-		void SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder);
+		void SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, 
+											 int ExpectedOrder);
 
 		void SetErrorFileNotOpen(const char* XMLSourceDiskPath);
 		void SetErrorFailedToReadFile(const char* XMLSourceDiskPath);
@@ -229,6 +238,7 @@ namespace scratchpad
 		***** FOR WRITE BUFFERING
 		****/
 		string		 WriteBuff;
+		string		 ExtraStringBuff;
 
 		/****
 		***** ERROR

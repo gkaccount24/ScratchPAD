@@ -3,25 +3,28 @@
 namespace scratchpad
 {
 	/****
-	*****
 	***** XML MARKUP HELPER MACROS
-	*****
 	*****/
 
 	/***
 	*** XML MARKUP CONSTRUCTORS
 	**/
-	xml_markup::xml_markup(string MarkupStartTag):
-		StartTag(move(MarkupStartTag)),
+
+	xml_markup::xml_markup(xml_markup_types MarkupType,
+						   string MarkupStartTag):
+		Type(MarkupType),
+		StartTag(MarkupStartTag),
 		EndTag()
 	{
 
 	}
 
-	xml_markup::xml_markup(string MarkupStartTag,
+	xml_markup::xml_markup(xml_markup_types MarkupType,
+						   string MarkupStartTag,
 						   string MarkupEndTag):
-		StartTag(move(MarkupStartTag)),
-		EndTag(move(MarkupEndTag))
+		Type(MarkupType),
+		StartTag(MarkupStartTag),
+		EndTag(MarkupEndTag)
 	{
 
 	}
@@ -46,6 +49,9 @@ namespace scratchpad
 					Children[Index] = nullptr;
 				}
 			}
+
+			Children.clear();
+			Children.shrink_to_fit();
 		}
 	}
 }
