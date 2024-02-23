@@ -26,6 +26,7 @@ namespace scratchpad
 	static const string_view XMLDeclStartTag = "<?xml";
 	static const string_view XMLDeclEndTag	 = "?>";
 	static const string_view XMLDocTypeStartTag = "<!DOCTYPE";
+	static const string_view XMLDocTypeEndTag = ">";
 	static const string_view CommentStartTag = "<!--";
 	static const string_view CommentEndTag   = "-->";
 
@@ -337,13 +338,11 @@ namespace scratchpad
 
 				case '>':
 				{
-					if(TryToParseTypeStart())
+					if(TryToParseTypeEnd())
 					{
-						PushMarkup(XMLDocTypeStartTag.data());
 
 						break;
 					}
-					
 					else
 					{
 						// advance input buffer
@@ -356,7 +355,6 @@ namespace scratchpad
 							break;
 						}
 					}
-
 
 					break;
 				}
@@ -693,7 +691,7 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseDeclStart()
 	{		
-		if(TryToParseStartTag(XMLDeclEndTag.data()))
+		if(TryToParseStartTag(XMLDeclStartTag.data()))
 		{
 			SwitchState(xml_parsing_states::ParsingDeclAtts);
 		}
@@ -712,6 +710,20 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseTypeEnd()
 	{
+		if(!TryToParseEndTag(XMLDocTypeEndTag.data()))
+		{
+			SwitchState(xml_parsing_states::ParsingStartTag);
+		}
+		else
+		{
+			SwitchState(xml_parsing_states::ParsingUnknown);
+
+			Rewind(XMLDocTypeEndTag.size());
+
+			// set malformed name/token error
+			SetErrorMalformedTypeTag();
+		}
+
 		return !Error;
 	}
 
@@ -719,7 +731,7 @@ namespace scratchpad
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingDeclAtts);
+			SwitchState(xml_parsing_states::ParsingTypeAtts);
 		}
 		else
 		{
@@ -736,6 +748,20 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseCommentEnd()
 	{
+		if(!TryToParseEndTag(CommentEndTag.data()))
+		{
+			SwitchState(xml_parsing_states::ParsingStartTag);
+		}
+		else
+		{
+			SwitchState(xml_parsing_states::ParsingUnknown);
+
+			Rewind(CommentEndTag.size());
+
+			// set malformed name/token error
+			SetErrorMalformedTypeTag();
+		}
+
 		return !Error;
 	}
 
