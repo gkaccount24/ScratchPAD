@@ -17,6 +17,10 @@ using std::string_view;
 #define HardCast(Type, Val) reinterpret_cast<Type>((Val))
 #define DynamicCast(Type, Val) dynamic_cast<Type>((Val))
 
+#define XMLDeclVersionAttributeIndex 0
+#define XMLDeclEncodingAttributeIndex 1
+#define XMLDeclStandaloneAttributeIndex 2
+
 namespace scratchpad
 {
 	static const string_view XMLDeclStartTag = "<?xml";
@@ -24,7 +28,11 @@ namespace scratchpad
 	static const string_view XMLDocTypeStartTag = "<!DOCTYPE";
 	static const string_view CommentStartTag = "<!--";
 	static const string_view CommentEndTag   = "-->";
-	
+
+	static const string_view XMLDeclVersionAttribute = "version";
+	static const string_view XMLDeclEncodingAttribute = "encoding";
+	static const string_view XMLDeclStandaloneAttribute = "standalone";
+
 	/****
 	***** MAIN CONSTRUCTOR
 	***** FOR XML SOURCE
@@ -176,6 +184,12 @@ namespace scratchpad
 		}
 	}
 
+	void xml_source::SwitchState(xml_parsing_states NextState)
+	{
+		LastParsingState = ParsingState;
+		ParsingState = NextState;
+	}
+
 	/****
 	***** MAIN SOURCE PARSING METHOD
 	***** PARSES XML FILES OF COURSE
@@ -186,7 +200,14 @@ namespace scratchpad
 		{
 			case xml_parsing_states::ParsingDeclAtts:
 			{
-				while(!Error && TryToParseNameToken('='))
+				const size_t AttributeCount = 3;
+
+				size_t VersionIdx = 0;
+				size_t EncodingIdx = 0;
+				size_t StandaloneIdx = 0;
+				size_t Idx = 0;
+
+				while(!Error && Idx < AttributeCount && TryToParseNameToken('='))
 				{
 					NameTokens.push_back(WriteBuff);
 
@@ -196,8 +217,23 @@ namespace scratchpad
 					{
 						if(xml_markup_attribute* Attribute = new xml_markup_attribute { NameTokens.back(), WriteBuff })
 						{
+							if(NameTokens.back() == XMLDeclVersionAttribute)
+							{
+								VersionIdx = Idx;
+							}
+							else if(NameTokens.back() == XMLDeclEncodingAttribute)
+							{
+								EncodingIdx = Idx;
+							}
+							else if(NameTokens.back() == XMLDeclStandaloneAttribute)
+							{
+								StandaloneIdx = Idx;
+							}
+
 							Markup.back()->Attributes.push_back(Attribute);
 						}
+
+						Idx++;
 					}
 
 					if(!IsWS())
@@ -209,15 +245,79 @@ namespace scratchpad
 					TrimWS();
 				}
 
+				// final error checking
+				if(VersionIdx != 0)
+				{
+					SetErrorOutOfOrderDeclAttribute(VersionIdx, XMLDeclVersionAttributeIndex);
+				}
+
+				if(EncodingIdx != 1)
+				{
+					SetErrorOutOfOrderDeclAttribute(EncodingIdx, XMLDeclEncodingAttributeIndex);
+				}
+
+				if(StandaloneIdx != 2)
+				{
+					SetErrorOutOfOrderDeclAttribute(StandaloneIdx, XMLDeclStandaloneAttributeIndex);
+				}
+
+				SwitchState(xml_parsing_states::ParsingEndTag);
 				break;
 			}
+		}
+	}
 
-			case xml_parsing_states::ParsingTypeAtts:
+	void xml_source::LexBuff()
+	{
+		if(!Error)
+		{
+			switch(Buffer()->sgetc())
 			{
+				/****
+				***** PARSE XML STARTING ELEMENT
+				****/
+				case '<':
+				{
+					if(TryToParseDeclStart())
+					{
+						PushMarkup(XMLDeclStartTag.data());
 
-				break;
+						break;
+					}
+					else if(TryToParseTypeStart())
+					{
+						PushMarkup(XMLDocTypeStartTag.data());
+
+						break;
+					}
+					else if(TryToParseCommentStart())
+					{
+						PushMarkup(CommentStartTag.data());
+
+						break;
+					}
+					else
+					{
+						// advance input buffer
+						// fewer bytes to read;
+						Buffer()->sbumpc();
+
+						if(!TryToParseNameToken('>'))
+						{
+							// OutputLastError();
+							break;
+						}
+					}
+
+					break;
+				}
+
+				case '>':
+				{
+
+					break;
+				}
 			}
-
 		}
 	}
 
@@ -228,77 +328,8 @@ namespace scratchpad
 		while(Buffer()->in_avail() > 0 && !Error)
 		{
 			TrimWS();
-
 			ProcessState();
-
-			if(!Error)
-			{
-				switch(Buffer()->sgetc())
-				{
-					/****
-					***** PARSE XML STARTING ELEMENT
-					****/
-					case '<':
-					{
-						if(TryToParseDeclStart())
-						{
-							PushMarkup(XMLDeclStartTag.data());
-
-							break;
-						}
-						else if(TryToParseTypeStart())
-						{
-							PushMarkup(XMLDocTypeStartTag.data());
-
-							break;
-						}
-						else if(TryToParseCommentStart())
-						{
-							PushMarkup(CommentStartTag.data());
-
-							break;
-						}
-						else
-						{
-							// advance input buffer
-							// fewer bytes to read;
-							Buffer()->sbumpc();
-
-							if(!TryToParseNameToken('>'))
-							{
-								// OutputLastError();
-								break;
-							}
-						}
-
-						break;
-					}
-
-					/****
-					***** PARSE XML ENDING ELEMENT
-					****/
-					case '>':
-					{
-
-						break;
-					}
-
-					/****
-					***** PARSE LITERALS
-					****/
-					case '\"':
-					{
-			
-						break;
-					}
-
-					default:
-					{
-
-						break;
-					}
-				}
-			}
+			LexBuff();
 		}
 
 		return Doc;
@@ -316,6 +347,26 @@ namespace scratchpad
 		}
 
 		return !Error;
+	}
+
+	inline void xml_source::SetErrorMissingXMLVersionAttribute()
+	{
+		if(SetErrorState())
+		{
+			ErrorBuff << "error missing xml version attribute"
+					  << endl;
+		}
+	}		
+
+	inline void xml_source::SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder)
+	{
+		if(SetErrorState())
+		{
+
+
+			ErrorBuff << "out of order decl attribute"
+					  << endl;
+		}
 	}
 
 	inline void xml_source::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
@@ -489,16 +540,6 @@ namespace scratchpad
                 Buffer()->sgetc() == '\n');
     }
 
-	inline void xml_source::Append(const char* Bytes)
-	{
-		WriteBuff.append(Bytes);
-	}
-
-	inline void xml_source::Append(char Char)
-	{
-		WriteBuff += Char;
-	}
-
     inline void xml_source::TrimWS()
     {
         WSSkipped = 0;
@@ -572,11 +613,11 @@ namespace scratchpad
 	{		
 		if(TryToParseStartTag(XMLDeclStartTag.data()))
 		{
-			ParsingState = xml_parsing_states::ParsingDeclAtts;
+			SwitchState(xml_parsing_states::ParsingDeclAtts);
 		}
 		else
 		{
-			ParsingState = xml_parsing_states::ParsingUnknown;
+			SwitchState(xml_parsing_states::ParsingUnknown);
 
 			Rewind(XMLDeclStartTag.size());
 
@@ -591,11 +632,11 @@ namespace scratchpad
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
-			ParsingState = xml_parsing_states::ParsingTypeAtts;
+			SwitchState(xml_parsing_states::ParsingDeclAtts);
 		}
 		else
 		{
-			ParsingState = xml_parsing_states::ParsingUnknown;
+			SwitchState(xml_parsing_states::ParsingUnknown);
 
 			Rewind(XMLDocTypeStartTag.size());
 

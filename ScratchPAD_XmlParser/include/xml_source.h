@@ -138,6 +138,8 @@ namespace scratchpad
 		bool IsWS();
 		void TrimWS();
 
+		void SwitchState(xml_parsing_states NextState);
+
 		bool Match(const char* Bytes, 
 				   size_t ByteCount);
 
@@ -151,6 +153,7 @@ namespace scratchpad
 		bool TryToParseCommentStart();
 
 		void ProcessState();
+		void LexBuff();
 
 	private:
 		/****
@@ -176,6 +179,9 @@ namespace scratchpad
 		void SetErrorMissingQuotes();
 		void SetErrorMissingAttribVal();
 		void SetErrorMissingWS();
+
+		void SetErrorMissingXMLVersionAttribute();
+		void SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder);
 
 		void SetErrorFileNotOpen(const char* XMLSourceDiskPath);
 		void SetErrorFailedToReadFile(const char* XMLSourceDiskPath);
@@ -209,6 +215,7 @@ namespace scratchpad
 		***** DATA
 		****/
 		xml_parsing_states ParsingState;
+		xml_parsing_states LastParsingState;
 
 		/****
 		***** GENERIC STRING
