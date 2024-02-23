@@ -331,6 +331,8 @@ namespace scratchpad
 							// fewer bytes to read;
 							Buffer()->sbumpc();
 
+							DebugChar = Buffer()->sgetc();
+
 							if(!TryToParseNameToken('>'))
 							{
 								// OutputLastError();
@@ -354,6 +356,8 @@ namespace scratchpad
 
 					// set end tag
 					Markup.back()->EndTag = XMLDeclEndTag.data();
+
+
 
 					break;
 				}
@@ -821,17 +825,12 @@ namespace scratchpad
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingTypeAtts);
-		}
-		else
-		{
-			SwitchState(xml_parsing_states::ParsingUnknown);
-
 			Rewind(XMLDocTypeStartTag.size());
 
-			// set malformed name/token error
-			SetErrorMalformedTypeTag();
+			return !Error;
 		}
+
+		SwitchState(xml_parsing_states::ParsingTypeAtts);
 
 		return !Error;
 	}
@@ -840,17 +839,12 @@ namespace scratchpad
 	{
 		if(!TryToParseEndTag(CommentEndTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingStartTag);
-		}
-		else
-		{
-			SwitchState(xml_parsing_states::ParsingUnknown);
-
 			Rewind(CommentEndTag.size());
 
-			// set malformed name/token error
-			SetErrorMalformedTypeTag();
+			return !Error;
 		}
+
+		SwitchState(xml_parsing_states::ParsingStartTag);
 
 		return !Error;
 	}
@@ -861,11 +855,11 @@ namespace scratchpad
 		{
 			Rewind(CommentStartTag.size());
 
-			// set malformed name 
-			// token error
-			SetErrorMalformedTypeTag();
+			return !Error;
 		}
-			
+
+		SwitchState(xml_parsing_states::ParsingStartTag);
+
 		return !Error;
 	}
 
