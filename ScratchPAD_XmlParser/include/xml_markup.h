@@ -42,7 +42,7 @@ namespace scratchpad
 		xml_markup_types Type;
 		string			 StartTag;
 		string			 EndTag;
-		string			 Text;
+		string			 Content;
 
 		vector<xml_markup_attribute*> Attributes;
 		vector<xml_markup*>			  Children;

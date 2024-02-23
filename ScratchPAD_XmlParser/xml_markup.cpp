@@ -14,7 +14,7 @@ namespace scratchpad
 						   string MarkupStartTag):
 		Type(MarkupType),
 		StartTag(MarkupStartTag),
-		EndTag()
+		EndTag(), Content()
 	{
 
 	}
@@ -24,7 +24,8 @@ namespace scratchpad
 						   string MarkupEndTag):
 		Type(MarkupType),
 		StartTag(MarkupStartTag),
-		EndTag(MarkupEndTag)
+		EndTag(MarkupEndTag),
+		Content()
 	{
 
 	}

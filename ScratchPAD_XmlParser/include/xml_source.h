@@ -25,7 +25,6 @@ namespace scratchpad
 	using std::fstream;
 	using std::vector;
 	using std::string;
-
 	using std::cout;
 	using std::endl;
 
@@ -95,14 +94,16 @@ namespace scratchpad
 	{
 		ParsingStartTag   = 0,
 		ParsingEndTag	  = 1,
-
 		ParsingDeclAtts	  = 2,
 		ParsingTypeAtts	  = 3,
 		ParsingType		  = 4,
 		ParsingComment    = 5,
-		ParsingUnknown	  = 6,
-		ParsingStateCount = 7
+		ParsingContent	  = 6,
+		ParsingUnknown	  = 7,
+		ParsingStateCount = 8
 	};
+
+#define DATA private
 
 	class xml_source
 	{
@@ -185,6 +186,7 @@ namespace scratchpad
 		void SetErrorIllegalLiteralVal();
 		void SetErrorMalformedDeclTag();
 		void SetErrorMissingEndTag(string ExpectedText);
+		void SetErrorMalformedStartTag();
 		void SetErrorMalformedTypeTag();
 		void SetErrorMalformedCommentTag();
 		void SetErrorMissingAttVal();
@@ -205,7 +207,7 @@ namespace scratchpad
 		string GetLastError();
 		void OutputLastError();
 
-	public:
+	DATA:
 		/****
 		***** SOURCE
 		***** STRING

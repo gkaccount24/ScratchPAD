@@ -210,6 +210,12 @@ namespace scratchpad
 
 		switch(ParsingState)
 		{
+			case xml_parsing_states::ParsingContent:
+			{
+
+				break;
+			}
+
 			case xml_parsing_states::ParsingDeclAtts:
 			{
 				const size_t AttributeCount = 3;
@@ -333,10 +339,15 @@ namespace scratchpad
 
 							DebugChar = Buffer()->sgetc();
 
-							if(!TryToParseNameToken('>'))
+							if(TryToParseNameToken('>'))
 							{
-								// OutputLastError();
-								break;
+								NameTokens.push_back(move(WriteBuff));
+								SwitchState(xml_parsing_states::ParsingContent);
+							}
+							else
+							{
+								SetErrorMalformedStartTag();
+
 							}
 						}
 					}
@@ -357,8 +368,6 @@ namespace scratchpad
 					// set end tag
 					Markup.back()->EndTag = XMLDeclEndTag.data();
 
-
-
 					break;
 				}
 				case '-':
@@ -369,6 +378,7 @@ namespace scratchpad
 						// this error would be
 
 						SetErrorMalformedCommentTag();
+
 						break;
 					}
 
@@ -416,7 +426,10 @@ namespace scratchpad
 		{
 			char DebugChar = Buffer()->sgetc();
 
-			TrimWS();
+			if(!StateMatches(xml_parsing_states::ParsingContent))
+			{
+				TrimWS();
+			}
 
 			DebugChar = Buffer()->sgetc();
 
@@ -441,6 +454,19 @@ namespace scratchpad
 		return !Error;
 	}
 
+	inline void xml_source::SetErrorMalformedStartTag()
+	{
+		if(SetErrorState())
+		{
+			ReadBuff(BytesRead);
+
+			ErrorBuff << "received malformed start tag: "
+					  << ExtraStringBuff << "\n";
+
+			ExtraStringBuff.clear();
+		}
+	}
+
 	inline void xml_source::SetErrorMissingEndTag(string ExpectedText)
 	{
 		if(SetErrorState())
@@ -451,6 +477,8 @@ namespace scratchpad
 					  << "received token: " << ExtraStringBuff 
 					  << "expected token: " << ExpectedText
 					  << endl;
+
+			ExtraStringBuff.clear();
 		}
 	}
 
@@ -724,8 +752,6 @@ namespace scratchpad
 
 	inline bool xml_source::TryToParseEndTag(string TagText)
 	{
-		SwitchState(xml_parsing_states::ParsingEndTag);
-
 		if(Match(TagText.data(),
 				 TagText.size()))
 		{
@@ -738,15 +764,15 @@ namespace scratchpad
 
 				return false;
 			}
+
+			return true;
 		}
 
-		return !Error;
+		return false;
 	}
 
 	inline bool xml_source::TryToParseStartTag(string TagText)
 	{
-		SwitchState(xml_parsing_states::ParsingStartTag);
-
 		if(Match(TagText.c_str(),
 			     TagText.size()))
 		{
@@ -759,108 +785,95 @@ namespace scratchpad
 
 				return false;
 			}
+
+			return true;
 		}
 
-		return !Error;
+		return false;
 	}
 
 	inline bool xml_source::TryToParseDeclEnd()
 	{
-		if(TryToParseEndTag(XMLDeclEndTag.data()))
+		if(!TryToParseEndTag(XMLDeclEndTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingStartTag);
-		}
-		else
-		{
-			SwitchState(xml_parsing_states::ParsingUnknown);
+			Rewind(BytesRead);
 
-			Rewind(XMLDeclEndTag.size());
-
-			// set malformed name/token error
-			SetErrorMalformedDeclTag();
+			return false;
 		}
 
-		return !Error;
+		SwitchState(xml_parsing_states::ParsingStartTag);
+
+		return true;
 	}
 
 	inline bool xml_source::TryToParseDeclStart()
 	{		
-		if(TryToParseStartTag(XMLDeclStartTag.data()))
+		if(!TryToParseStartTag(XMLDeclStartTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingDeclAtts);
-		}
-		else
-		{
-			SwitchState(xml_parsing_states::ParsingUnknown);
+			Rewind(BytesRead);
 
-			Rewind(XMLDeclStartTag.size());
-
-			// set malformed name/token error
-			SetErrorMalformedDeclTag();
+			return false;
 		}
 
-		return !Error;
+		SwitchState(xml_parsing_states::ParsingDeclAtts);
+
+		return true;
 	}
 
 	inline bool xml_source::TryToParseTypeEnd()
 	{
 		if(!TryToParseEndTag(XMLDocTypeEndTag.data()))
 		{
-			SwitchState(xml_parsing_states::ParsingStartTag);
-		}
-		else
-		{
-			SwitchState(xml_parsing_states::ParsingUnknown);
+			Rewind(BytesRead);
 
-			Rewind(XMLDocTypeEndTag.size());
-
-			// set malformed name/token error
-			SetErrorMalformedTypeTag();
+			return false;
 		}
 
-		return !Error;
+		SwitchState(xml_parsing_states::ParsingStartTag);
+
+		return true;
 	}
 
 	inline bool xml_source::TryToParseTypeStart()
 	{
 		if(!TryToParseStartTag(XMLDocTypeStartTag.data()))
 		{
-			Rewind(XMLDocTypeStartTag.size());
+			Rewind(BytesRead);
 
-			return !Error;
+			return false;
 		}
 
 		SwitchState(xml_parsing_states::ParsingTypeAtts);
 
-		return !Error;
+		return true;
 	}
 
 	inline bool xml_source::TryToParseCommentEnd()
 	{
 		if(!TryToParseEndTag(CommentEndTag.data()))
 		{
-			Rewind(CommentEndTag.size());
+			Rewind(BytesRead);
 
-			return !Error;
+			return false;
 		}
 
 		SwitchState(xml_parsing_states::ParsingStartTag);
 
-		return !Error;
+		return true;
 	}
 
 	inline bool xml_source::TryToParseCommentStart()
 	{
 		if(!TryToParseStartTag(CommentStartTag.data()))
 		{
-			Rewind(CommentStartTag.size());
+			Rewind(BytesRead);
 
-			return !Error;
+			return false;
 		}
 
-		SwitchState(xml_parsing_states::ParsingStartTag);
+		SwitchState(xml_parsing_states::ParsingComment);
 
-		return !Error;
+		return true;
 	}
 
 	inline bool xml_source::TryToParseNameStart()
