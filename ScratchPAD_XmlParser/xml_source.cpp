@@ -186,7 +186,7 @@ namespace scratchpad
 		}
 	}
 
-	void xml_source::SwitchState(xml_parsing_states NextState)
+	inline void xml_source::SwitchState(xml_parsing_states NextState)
 	{
 		if(ParsingState != NextState)
 		{
@@ -195,7 +195,7 @@ namespace scratchpad
 		}
 	}
 
-	bool xml_source::StateMatches(xml_parsing_states XMLParsingState)
+	inline bool xml_source::StateMatches(xml_parsing_states XMLParsingState)
 	{
 		return ParsingState == XMLParsingState;
 	}
@@ -212,6 +212,10 @@ namespace scratchpad
 		{
 			case xml_parsing_states::ParsingContent:
 			{
+				if(TryToParseContent())
+				{
+
+				}
 
 				break;
 			}
@@ -298,56 +302,60 @@ namespace scratchpad
 				****/
 				case '<':
 				{
-					if(!StateMatches(xml_parsing_states::ParsingStartTag))
+					// we can lex this character in these 
+					// scenarios
+					if(StateMatches(xml_parsing_states::ParsingContent) ||
+					   StateMatches(xml_parsing_states::ParsingStartTag))
 					{
-						SetErrorEncounteredInvalidStartTag();
-
-						break;
-					}
-
-					if(Markup.empty())
-					{
-						if(TryToParseDeclStart())
+						if(StateMatches(xml_parsing_states::ParsingContent))
 						{
-							PushMarkup(xml_markup_types::DocDeclTag,
-									   XMLDeclStartTag.data());
+							SwitchState(xml_parsing_states::ParsingStartTag);
+						}	
 
-							break;
-						}
-					}
-					else
-					{
-						if(TryToParseTypeStart())
+						if(Markup.empty())
 						{
-							PushMarkup(xml_markup_types::DocTypeTag,
-									   XMLDocTypeStartTag.data());
+							if(TryToParseDeclStart())
+							{
+								PushMarkup(xml_markup_types::DocDeclTag,
+										   XMLDeclStartTag.data());
 
-							break;
-						}
-						else if(TryToParseCommentStart())
-						{
-							PushMarkup(xml_markup_types::CommentTag,
-									   CommentStartTag.data());
-
-							break;
+								break;
+							}
 						}
 						else
 						{
-							// advance input buffer
-							// fewer bytes to read;
-							Buffer()->sbumpc();
-
-							DebugChar = Buffer()->sgetc();
-
-							if(TryToParseNameToken('>'))
+							if(TryToParseTypeStart())
 							{
-								NameTokens.push_back(move(WriteBuff));
-								SwitchState(xml_parsing_states::ParsingContent);
+								PushMarkup(xml_markup_types::DocTypeTag,
+										   XMLDocTypeStartTag.data());
+
+								break;
+							}
+							else if(TryToParseCommentStart())
+							{
+								PushMarkup(xml_markup_types::CommentTag,
+										   CommentStartTag.data());
+
+								break;
 							}
 							else
 							{
-								SetErrorMalformedStartTag();
+								// advance input buffer
+								// fewer bytes to read;
+								Buffer()->sbumpc();
 
+								DebugChar = Buffer()->sgetc();
+
+								if(TryToParseNameToken('>'))
+								{
+									PushMarkup(xml_markup_types::UserTag, move(WriteBuff));
+									SwitchState(xml_parsing_states::ParsingContent);
+								}
+								else
+								{
+									SetErrorMalformedStartTag();
+
+								}
 							}
 						}
 					}
@@ -748,6 +756,35 @@ namespace scratchpad
 		}
 
 		return Matched && !Error;
+	}
+
+	inline bool xml_source::TryToParseContent()
+	{
+		bool Success = true;
+
+		WriteBuff.clear();
+
+		BytesRead = 0;
+
+		while(Buffer()->in_avail() > 0)
+		{
+			if(Buffer()->sgetc() == '<' ||
+			   Buffer()->sgetc() == '&')
+			{
+				Success = false;
+				break;
+			}
+
+			Buffer()->sbumpc();
+			BytesRead++;
+		}
+
+		WriteBuff.resize(BytesRead);
+
+		Buffer()->sgetn(WriteBuff.data(), 
+						WriteBuff.size());
+
+		return Success;
 	}
 
 	inline bool xml_source::TryToParseEndTag(string TagText)

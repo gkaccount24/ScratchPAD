@@ -150,6 +150,7 @@ namespace scratchpad
 		bool TryToParseNameStart();
 		bool TryToParseNameToken(char Delim);
 		bool TryToParseLiteral();
+		bool TryToParseContent();
 
 		bool TryToParseStartTag(string TagText);
 		bool TryToParseEndTag(string TagText);
