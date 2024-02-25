@@ -31,12 +31,8 @@ namespace scratchpad
 	{
 
 	public:
-		xml_markup(xml_markup_types MarkupType, 
-				   string StartTag);
-		xml_markup(xml_markup_types MarkupType,
-				   string StartTag,
-				   string EndTag);
-
+		xml_markup(xml_markup_types MarkupType, string StartTag);
+		xml_markup(xml_markup_types MarkupType, string StartTag, string EndTag);
 		~xml_markup();
 
 	DATA:

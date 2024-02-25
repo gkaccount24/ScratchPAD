@@ -96,11 +96,12 @@ namespace scratchpad
 		ParsingEndTag	  = 1,
 		ParsingDeclAtts	  = 2,
 		ParsingTypeAtts	  = 3,
-		ParsingType		  = 4,
-		ParsingComment    = 5,
-		ParsingContent	  = 6,
-		ParsingUnknown	  = 7,
-		ParsingStateCount = 8
+		ParsingAtts		  = 4,
+		ParsingType		  = 5,
+		ParsingComment    = 6,
+		ParsingContent	  = 7,
+		ParsingUnknown	  = 8,
+		ParsingStateCount = 9
 	};
 
 #define DATA private
@@ -133,6 +134,11 @@ namespace scratchpad
 							string XMLSourceDiskPath);
 
 		void Rewind(size_t Count);
+
+	private:
+		void WrapStartTag(string& TagSource);
+		void WrapEndTag(string& TagSource, bool Shortened = false);
+
 	private:
 		streambuf* Buffer();
 		void ReadBuff(size_t Count);
@@ -187,6 +193,7 @@ namespace scratchpad
 		void SetErrorIllegalLiteralVal();
 		void SetErrorMalformedDeclTag();
 		void SetErrorMissingEndTag(string ExpectedText);
+		void SetErrorMalformedNameToken();
 		void SetErrorMalformedStartTag();
 		void SetErrorMalformedTypeTag();
 		void SetErrorMalformedCommentTag();
@@ -242,6 +249,7 @@ namespace scratchpad
 		****/
 		string		 WriteBuff;
 		string		 ExtraStringBuff;
+		string		 ContentBuff;
 
 		/****
 		***** ERROR

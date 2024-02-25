@@ -1,31 +1,32 @@
+#include "game_message_handler.h"
+#include "game_message.h"
+#include "game_diagnostics.h"
 
-#include "xml_source.h"
-#include "xml_document.h"
+#include <SDL.h>
+#include <SDL_image.h>
+#include <SDL_ttf.h>
 
-#include <fstream>
-#include <sstream>
 #include <iostream>
-
-using std::fstream;
-using std::stringstream;
+#include <sstream>
+#include <string_view>
+#include <string>
 
 using std::cout;
-using std::cin;
+using std::endl;
 
-enum class exit_code
-{
-	Success			= 0,
-	FailedToOpenDoc = -100,
-	FailedToReadDoc = -101
-};
+using std::stringstream;
+using std::string_view;
+using std::string;
+
+static const string_view WindowTitle = "Sidescroller";
+static const scratchpad::geometry WindowGeometry = { };
+static const int WindowFlags = SDL_WINDOW_MAXIMIZED | 
+							   SDL_WINDOW_SHOWN;
+#undef main
 
 int main(int ArgCount, char* ArgV[])
 {
-	string DiskPath("Z:\\data\\xml samples\\books.xml");
-	fstream SourceFile(DiskPath);
+	scratchpad::game Sidescroller(WindowTitle.data(), WindowGeometry, WindowFlags);
 
-	scratchpad::xml_source XMLSource(move(SourceFile), DiskPath);
-	scratchpad::xml_document* XMLDoc = XMLSource.Parse();
-
-	return 0;
+	return Sidescroller.Play();
 }

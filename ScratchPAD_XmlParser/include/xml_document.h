@@ -15,7 +15,6 @@ namespace scratchpad
 
 	class xml_document
 	{
-		friend class xml_source;
 
 	public:
 		 xml_document();

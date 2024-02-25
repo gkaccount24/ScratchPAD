@@ -2,16 +2,11 @@
 
 namespace scratchpad
 {
-	/****
-	***** XML MARKUP HELPER MACROS
-	*****/
-
 	/***
 	*** XML MARKUP CONSTRUCTORS
 	**/
 
-	xml_markup::xml_markup(xml_markup_types MarkupType,
-						   string MarkupStartTag):
+	xml_markup::xml_markup(xml_markup_types MarkupType, string MarkupStartTag):
 		Type(MarkupType),
 		StartTag(MarkupStartTag),
 		EndTag(), Content()
@@ -19,9 +14,7 @@ namespace scratchpad
 
 	}
 
-	xml_markup::xml_markup(xml_markup_types MarkupType,
-						   string MarkupStartTag,
-						   string MarkupEndTag):
+	xml_markup::xml_markup(xml_markup_types MarkupType, string MarkupStartTag, string MarkupEndTag):
 		Type(MarkupType),
 		StartTag(MarkupStartTag),
 		EndTag(MarkupEndTag),

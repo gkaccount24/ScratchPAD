@@ -212,9 +212,38 @@ namespace scratchpad
 		{
 			case xml_parsing_states::ParsingContent:
 			{
-				if(TryToParseContent())
-				{
+				// if(TryToParseContent())
 
+				break;
+			}
+
+			case xml_parsing_states::ParsingAtts:
+			{
+				size_t Idx = 0;
+
+				while(!Error && TryToParseNameToken('='))
+				{
+					NameTokens.push_back(WriteBuff);
+
+					Buffer()->sbumpc();
+
+					if(TryToParseLiteral())
+					{
+						if(xml_markup_attribute* Attribute = new xml_markup_attribute { NameTokens.back(), WriteBuff })
+						{
+							Markup.back()->Attributes.push_back(Attribute);
+						}
+
+						Idx++;
+					}
+
+					if(!IsWS())
+					{
+						SetErrorMissingWS();
+						break;
+					}
+
+					TrimWS();
 				}
 
 				break;
@@ -297,6 +326,13 @@ namespace scratchpad
 
 			switch(Buffer()->sgetc())
 			{
+				case '>':
+				{
+					// expected character
+					// in stream;
+					break;
+				}
+
 				/****
 				***** PARSE XML STARTING ELEMENT
 				****/
@@ -318,7 +354,6 @@ namespace scratchpad
 							{
 								PushMarkup(xml_markup_types::DocDeclTag,
 										   XMLDeclStartTag.data());
-
 								break;
 							}
 						}
@@ -328,14 +363,12 @@ namespace scratchpad
 							{
 								PushMarkup(xml_markup_types::DocTypeTag,
 										   XMLDocTypeStartTag.data());
-
 								break;
 							}
 							else if(TryToParseCommentStart())
 							{
-								PushMarkup(xml_markup_types::CommentTag,
+								PushMarkup(xml_markup_types::CommentTag, 
 										   CommentStartTag.data());
-
 								break;
 							}
 							else
@@ -348,13 +381,18 @@ namespace scratchpad
 
 								if(TryToParseNameToken('>'))
 								{
+									Buffer()->sbumpc();
+
 									PushMarkup(xml_markup_types::UserTag, move(WriteBuff));
 									SwitchState(xml_parsing_states::ParsingContent);
 								}
 								else
 								{
-									SetErrorMalformedStartTag();
-
+									if(!Error)
+									{
+										PushMarkup(xml_markup_types::UserTag, move(WriteBuff));
+										SwitchState(xml_parsing_states::ParsingAtts);
+									}
 								}
 							}
 						}
@@ -364,12 +402,10 @@ namespace scratchpad
 				}
 				case '?':
 				{
-					if(!TryToParseDeclEnd())
+					if(StateMatches(xml_parsing_states::ParsingEndTag) && !TryToParseDeclEnd())
 					{
-						// error, not sure what
-						// this error would be
-
 						SetErrorMalformedDeclTag();
+
 						break;
 					}
 
@@ -380,11 +416,8 @@ namespace scratchpad
 				}
 				case '-':
 				{
-					if(!TryToParseCommentEnd())
+					if(StateMatches(xml_parsing_states::ParsingEndTag) && !TryToParseCommentEnd())
 					{
-						// error, not sure what
-						// this error would be
-
 						SetErrorMalformedCommentTag();
 
 						break;
@@ -395,33 +428,7 @@ namespace scratchpad
 
 					break;
 				}
-				case '>':
-				{
-					if(Markup.back()->Type == xml_markup_types::DocTypeTag)
-					{
-						if(!TryToParseTypeEnd())
-						{
-							SetErrorMissingEndTag(XMLDocTypeEndTag.data());
-						}
-
-						// set end tag
-						Markup.back()->EndTag = XMLDocTypeEndTag.data();
-					}
-					else
-					{
-						// advance input buffer
-						// fewer bytes to read;
-						Buffer()->sbumpc();
-
-						if(!TryToParseNameToken('>'))
-						{
-							// OutputLastError();
-							break;
-						}
-					}
-
-					break;
-				}
+				
 			}
 		}
 	}
@@ -460,6 +467,19 @@ namespace scratchpad
 		}
 
 		return !Error;
+	}
+
+	inline void xml_source::SetErrorMalformedNameToken()
+	{
+		if(SetErrorState())
+		{
+			ReadBuff(BytesRead);
+
+			ErrorBuff << "received malformed name token: "
+					  << ExtraStringBuff << "\n";
+
+			ExtraStringBuff.clear();
+		}
 	}
 
 	inline void xml_source::SetErrorMalformedStartTag()
@@ -784,6 +804,8 @@ namespace scratchpad
 		Buffer()->sgetn(WriteBuff.data(), 
 						WriteBuff.size());
 
+		ContentBuff = WriteBuff;
+
 		return Success;
 	}
 
@@ -951,7 +973,6 @@ namespace scratchpad
 		**** [7]   	Nmtoken	   :: = (NameChar)+
 		**** [8]   	Nmtokens	   :: = Nmtoken(#x20 Nmtoken) 
 		***/
-
 		if(!TryToParseNameStart())
 		{
 			SetErrorIllegalNameStart();
@@ -999,6 +1020,12 @@ namespace scratchpad
 
 			Buffer()->sgetn(WriteBuff.data(), 
 							WriteBuff.size());
+		}
+		else
+		{
+			// maybe an error to rer
+			SetErrorMalformedStartTag();
+
 		}
 
 		return ParsedToDelim && !Error;
@@ -1052,5 +1079,21 @@ namespace scratchpad
 
 		Buffer()->sbumpc();
 		return !Error;
+	}
+
+	void xml_source::WrapEndTag(string& TagSource, bool Shortened)
+	{
+		string TempBuff;
+
+
+	}
+
+	void xml_source::WrapStartTag(string& TagSource)
+	{
+		string TempBuff("<");
+		// TempBuff.append(Source);
+		// TempBuff.append(">");
+
+
 	}
 }
