@@ -1,23 +1,50 @@
 #include "game.h"
 
+namespace globals
+{
+	static string_view MESSAGE_BUFFER_HEADER
+	{
+		"_______    ________    ________    _____      _____  ___________\n"
+		"\\      \\ / _____/   /  _____/   /  _  \\ / \\ \\_   _____/\n"
+		"/   |   \\ / \\  ___ / \\  ___  /  /_\\  \\ / \\ / \\ | __)_\n"
+		"/    |    \\    \\_\\  \\ \\    \\_\\  \\/    |    \\ / Y    \\ | \\\n"
+		"\\____ | __ / \\______ / \\______ / \\____ | __ / \\____ | __ / _______ /\n"
+		"\\ / \\ / \\ / \\ / \\ / \\ /\n"
+	};
+}
+
 namespace scratchpad
 {
 	game::game(const char* WindowTitle,
 			   geometry WindowGeometry,
 			   int WindowFlags):
 
-		MessageBuffer(""),
-		Diagnostics(),
-		MessageHandler(MessageBuffer, Diagnostics),
+		MessageBuffer(globals::MESSAGE_BUFFER_HEADER.data()),
+		Diagnostics(MessageBuffer),
+		MessageHandler(Diagnostics),
 		Window(WindowTitle,
 			   WindowGeometry,
 			   WindowFlags,
-			   MessageBuffer)
+			   Diagnostics)
 	{
 		if(!Window.Create())
 		{
-			WriteErrorLog("failed to create window");
+			/***
+			***** LEAVE DIAG STATE IN UNREADY STATE
+			****/
+			Diagnostics.GameState = game_diagnostic_states::UnReady;
 
+			/***
+			***** OUTPUT GAME MESSAGE BUFFER
+			****/
+			cout << MessageBuffer.str() << endl;
+		}
+		else
+		{
+			/***
+			***** DIAG STATE IN SET TO READY STATE
+			****/
+			Diagnostics.SetReadyState();
 		}
 	}
 
@@ -27,33 +54,41 @@ namespace scratchpad
 
 	}
 
+	inline bool game::Playing()
+	{
+		return Diagnostics.GameState == game_diagnostic_states::Playing;
+	}
+
+	inline bool game::Paused()
+	{
+		return Diagnostics.GameState == game_diagnostic_states::Paused;
+	}
+
+	inline bool game::Ready()
+	{
+		return Diagnostics.GameState == game_diagnostic_states::Ready;
+	}
+
+	void game::Draw()
+	{
+
+
+		SDL_RenderPresent(Window.RenderHandle);
+	}
+
 	int game::Play()
 	{
-		while(!Diagnostics.Done)
+		while(Playing())
 		{
 			PollEvents();
 
+			Draw();
 		}
 
 		return 0;
 	}
 
-	void game::WriteErrorLog(string Message)
-	{
-
-	}
-
-	void game::WriteWarningLog(string Message)
-	{
-
-	}
-
-	void game::WriteInfoLog(string Message)
-	{
-
-	}
-
-	void game::PollEvents()
+	inline void game::PollEvents()
 	{
 		SDL_Event E { };
 

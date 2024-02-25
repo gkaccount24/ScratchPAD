@@ -25,15 +25,15 @@ namespace scratchpad
 
 	 }
 
-	 void mouse_move::Process(stringstream& MessageBuffer, game_diagnostics& GameDiag)
+	 void mouse_move::Process(game_diagnostics& GameDiag)
 	 {
-		 MessageBuffer << "[MQUEUE] mouse motion\n";
+		 GameDiag.WriteInfoLog("[MQUEUE] mouse motion message\n");
 
-		 MessageBuffer << "[MQUEUE] mouse pos x " << Evt.motion.x;
-		 MessageBuffer << "[MQUEUE] mouse pos y " << Evt.motion.y;
+		 GameDiag.WriteInfoLog("[MQUEUE] mouse pos x ");
+		 GameDiag.WriteInfoLog("[MQUEUE] mouse pos y ");
 
-		 MessageBuffer << "[MQUEUE] mouse rel x " << Evt.motion.xrel;
-		 MessageBuffer << "[MQUEUE] mouse rel y " << Evt.motion.yrel;
+		 GameDiag.WriteInfoLog("[MQUEUE] mouse pos rel x ");
+		 GameDiag.WriteInfoLog("[MQUEUE] mouse pos rel y ");
 	 }
 
 	 /***
@@ -56,12 +56,14 @@ namespace scratchpad
 		 }
 	 }
 
-	 void quit_message::Process(stringstream& MessageBuffer, game_diagnostics& GameDiag)
+	 void quit_message::Process(game_diagnostics& GameDiag)
 	 {
-		 MessageBuffer << "[MQUEUE] game quit message received\n";
-		 MessageBuffer << "[MQUEUE] game quit code: " << Code << "\n";
-		 MessageBuffer << "[MQUEUE] game quit message string: " << Message << "\n";
+		 GameDiag.WriteInfoLog("game quit message received\n");
+		 GameDiag.WriteInfoLog("game quit code: ");
+		 GameDiag.WriteInfoLog(to_string(Code));
+		 GameDiag.WriteInfoLog("\n");
 
-		 GameDiag.Done = true;
+		 GameDiag.WriteInfoLog("game quit message string: ");
+		 GameDiag.WriteInfoLog(Message);
 	 }
 }

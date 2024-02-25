@@ -9,6 +9,7 @@
 #include <sstream>
 #include <mutex>
 
+using std::to_string;
 using std::stringstream;
 using std::string;
 using std::mutex;
@@ -25,7 +26,7 @@ namespace scratchpad
 				 game_message(SDL_Event& GameEvt);
 		virtual ~game_message();
 
-		virtual void Process(stringstream& MessageBuffer, game_diagnostics& GameDiag) = 0;
+		virtual void Process(scratchpad::game_diagnostics& GameDiag) = 0;
 
 	protected:
 		SDL_Event&		   Evt;
@@ -41,7 +42,7 @@ namespace scratchpad
 				 mouse_move(SDL_Event& GameEvt);
 		virtual ~mouse_move();
 
-		virtual void Process(stringstream& MessageBuffer, game_diagnostics& GameDiag);
+		virtual void Process(scratchpad::game_diagnostics& GameDiag);
 	};
 
 	/***
@@ -54,11 +55,11 @@ namespace scratchpad
 				 quit_message(string ExitMessage, int ExitCode, SDL_Event& GameEvt);
 		virtual ~quit_message();
 
-		virtual void Process(stringstream& MessageBuffer, game_diagnostics& GameDiag);
+		virtual void Process(scratchpad::game_diagnostics& GameDiag);
 
 	public:
 		string Message;
-		int Code;
+		int	   Code;
 
 	};
 

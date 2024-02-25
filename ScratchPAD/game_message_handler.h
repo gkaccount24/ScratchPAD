@@ -18,17 +18,14 @@ namespace scratchpad
 	{
 		
 	public:
-		 game_message_handler(stringstream& GameMessageBuffer, 
-							  game_diagnostics& GameDiag);
+		 game_message_handler(game_diagnostics& GameDiag);
 		~game_message_handler();
 
 		void QMessage(SDL_Event& E);
 		void ProcessMessageQ();
 
 	private:
-		game_diagnostics& Diag;
-		stringstream& MessageBuffer;
-
+		game_diagnostics&	 Diagnostics;
 		queue<game_message*> MQueue;
 	};
 }

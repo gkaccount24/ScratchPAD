@@ -1,6 +1,9 @@
 #ifndef GAME_WINDOW_H
 #define GAME_WINDOW_H
 
+#include "game_diagnostics.h"
+#include "game_types.h"
+
 #include <SDL.h>
 
 #include <sstream>
@@ -11,39 +14,40 @@ using std::string;
 
 namespace scratchpad
 {
-	struct geometry
-	{
-		int XPos; 
-		int YPos;
-		int Width;
-		int Height;
-	};
-
 	class game_window 
 	{
 
 	public:
 
 		 game_window(const char* WindowTitle, 
-					 geometry WindowGeometry,
+					 scratchpad::geometry WindowGeometry,
 					 int WindowFlags,
-					 stringstream& GameMessageBuffer);
-
+					 scratchpad::game_diagnostics& GameDiag);
 		~game_window();
 
 	public:
+
 		bool Create();
 		void Destroy();
 
 	public:
-		SDL_Window* Handle;
+		/***
+		**** SDL PTR HANDLES
+		***/
+		SDL_Window*	  Handle;
 		SDL_Renderer* RenderHandle;
 
-		string Title;
-		geometry Geometry;
-		int Flags;
+		/***
+		**** WINDOW DATA MEMBERS
+		***/
+		string	      Title;
+		geometry	  Geometry;
+		int			  Flags;
 
-		stringstream& MessageBuffer;
+		/***
+		**** GAME DIAGNOSTIC UTILITY class
+		***/
+		scratchpad::game_diagnostics& Diagnostics;
 	};
 }
 

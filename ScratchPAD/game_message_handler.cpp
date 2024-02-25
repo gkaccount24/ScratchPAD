@@ -3,10 +3,8 @@
 
 namespace scratchpad
 {
-	game_message_handler::game_message_handler(stringstream& GameMessageBuffer, 
-											   game_diagnostics& GameDiag):
-		Diag(GameDiag),
-		MessageBuffer(GameMessageBuffer)
+	game_message_handler::game_message_handler(game_diagnostics& GameDiag):
+		Diagnostics(GameDiag)
 	{
 	}
 
@@ -32,7 +30,7 @@ namespace scratchpad
 		{
 			game_message* Message = MQueue.front();
 
-			Message->Process(MessageBuffer, Diag);
+			Message->Process(Diagnostics);
 
 			MQueue.pop();
 
@@ -48,13 +46,13 @@ namespace scratchpad
 			case SDL_MOUSEMOTION:
 			{
 				MQueue.push(new mouse_move(GameEvt));
-
 				break;
 			}
 			case SDL_QUIT:
 			{
-				MQueue.push(new quit_message(Diag.ExitMessage, Diag.ExitCode, GameEvt));
-
+				MQueue.push(new quit_message(Diagnostics.ExitMessage, 
+											 Diagnostics.ExitCode, 
+											 GameEvt));
 				break;
 			}
 		}

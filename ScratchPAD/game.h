@@ -5,6 +5,16 @@
 #include "game_diagnostics.h"
 #include "game_window.h"
 
+#include <string_view>
+#include <iostream>
+#include <sstream>
+
+using std::cout;
+using std::endl;
+
+using std::string_view;
+using std::stringstream;
+
 namespace scratchpad
 {
 	class game
@@ -23,15 +33,18 @@ namespace scratchpad
 		int Play();
 
 	private:
+
 		void PollEvents();
+		void Draw();
 
 	private:
 		/**
-		*** HELPER LOGGING METHODS
+		*** HELPER/CONVENIENCE METHODS
 		**/
-		void WriteErrorLog(string Message);
-		void WriteWarningLog(string Message);
-		void WriteInfoLog(string Message);
+		bool Playing();
+		bool Paused();
+		bool Ready();
+
 
 	private:
 		/**
@@ -54,11 +67,6 @@ namespace scratchpad
 		*** WINDOW FUNCTIONALITY
 		**/
 		scratchpad::game_window Window;
-
-		/**
-		*** Game STATE MEMBERS
-		**/
-		bool Done;
 	};
 }
 

@@ -1,6 +1,5 @@
-#include "game_message_handler.h"
-#include "game_message.h"
-#include "game_diagnostics.h"
+#include "game.h"
+#include "game_types.h"
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -26,7 +25,8 @@ static const int WindowFlags = SDL_WINDOW_MAXIMIZED |
 
 int main(int ArgCount, char* ArgV[])
 {
-	scratchpad::game Sidescroller(WindowTitle.data(), WindowGeometry, WindowFlags);
-
+	scratchpad::game Sidescroller(WindowTitle.data(), 
+								  WindowGeometry, 
+								  WindowFlags);
 	return Sidescroller.Play();
 }
