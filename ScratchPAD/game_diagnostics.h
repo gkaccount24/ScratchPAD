@@ -49,6 +49,7 @@ namespace scratchpad
 
 		void SetExitError(int GameExitCode,
 						  string GameExitMessage);
+
 		void StartGame();
 		void PauseGame();
 		void StopGame();

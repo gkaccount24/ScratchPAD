@@ -45,6 +45,9 @@ namespace scratchpad
 		bool Paused();
 		bool Ready();
 
+		bool LoadTextures(string Path);
+		bool LoadImages(string Path);
+		bool LoadAudio(string Path);
 
 	private:
 		/**

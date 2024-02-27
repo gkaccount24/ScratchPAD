@@ -72,7 +72,6 @@ namespace scratchpad
 	void game::Draw()
 	{
 
-
 		SDL_RenderPresent(Window.RenderHandle);
 	}
 
@@ -94,7 +93,15 @@ namespace scratchpad
 
 		while(SDL_PollEvent(&E))
 		{
-			MessageHandler.QMessage(E);
+			switch(E.type)
+			{
+				case SDL_QUIT:
+				{
+					Diagnostics.StopGame();
+
+					break;
+				}
+			}
 		}
 
 		MessageHandler.ProcessMessageQ();
