@@ -4,12 +4,14 @@
 #include "source.h"
 #include "document.h"
 #include "markup.h"
+#include "parser_diagnostics.h"
 
 #include <string_view>
 #include <vector>
 #include <string>
 #include <sstream>
 
+using std::streambuf;
 using std::stringstream;
 using std::string_view;
 using std::vector;
@@ -38,7 +40,8 @@ namespace scratchpad
 
 		public:
 
-			explicit parser(xml::source* XMLSource);
+			explicit parser(xml::parser_diagnostics* ParserDiagnostics, 
+							xml::source* XMLSource);
 
 			 parser();
 			~parser();
@@ -108,9 +111,24 @@ namespace scratchpad
 			***** LEXING METHODS
 			****/
 			void ProcessState();
-			void LexBuff();
+			void Lex();
 
 		private:
+			/****
+			***** XML PARSER DIAGNOSTICS
+			****/
+			xml::parser_diagnostics* Diagnostics;
+
+			/****
+			***** XML SOURCE DATA
+			****/
+			xml::source* Source;
+
+			/****
+			***** XML SOURCE BUFFER
+			****/
+			streambuf* Buffer;
+
 			/****
 			***** LEXER 
 			***** META DATA
@@ -133,29 +151,24 @@ namespace scratchpad
 			***** GENERIC STRING
 			***** FOR WRITE BUFFERING
 			****/
-			string		 WriteBuff;
-			string		 ExtraStringBuff;
-			string		 ContentBuff;
+			string		 WriteBuffer;
+			string		 ExtraStringBuffer;
+			string		 ContentBuffer;
 
 			/****
 			***** ERROR
 			***** DATA
 			****/
 			bool		 Error;
-			stringstream ErrorBuff;
+			stringstream ErrorBuffer;
 
 			/****
 			***** NAME
-			***** TOKENS
-			***** STACK
+			***** TOKENS & MARKUP
+			***** STACKS
 			****/
-			vector<string>	NameTokens;
+			vector<string>		 NameTokens;
 			vector<xml::markup*> Markup;
-
-			/****
-			***** XML SOURCE DATA
-			****/
-			xml::source& Source;
 		};
 	}
 }

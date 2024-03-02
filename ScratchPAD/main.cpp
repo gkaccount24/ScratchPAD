@@ -21,7 +21,6 @@ static const int		 WindowFlags = SDL_WINDOW_MAXIMIZED |
 
 int main(int ArgCount, char* ArgV[])
 {
-	// xml::source SourceFile;
 
 	return 0;
 }

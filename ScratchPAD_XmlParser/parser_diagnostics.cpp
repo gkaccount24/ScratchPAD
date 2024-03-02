@@ -1,215 +1,231 @@
 #include "parser_diagnostics.h"
 
+#define EMPTY_BUFFER_STRING ""
+
 namespace scratchpad
 {
 	namespace xml
 	{
-		parser_diagnostics::parser_diagnostics() { }
-		parser_diagnostics::~parser_diagnostics() { }
+		/****
+		***** DIAGNOSTIC CONSTRUCTOR
+		****/
+		parser_diagnostics::parser_diagnostics(stringstream& ParserMessageBuffer):
+			MessageBuffer(ParserMessageBuffer),
+			WriteBuffer(EMPTY_BUFFER_STRING),
+			ErrorCode(xml::error_codes::Unknown),
+			Error(false)
+		{ }
 
-		inline bool parser_diagnostics::SetErrorState()
+		/****
+		***** DIAGNOSTIC DESTRUCTOR 
+		****/
+		parser_diagnostics::~parser_diagnostics() 
+		{
+			WriteInfoLog("destroying parser_diagnostics");
+
+			Error = false;
+		}
+
+		inline void parser_diagnostics::WriteErrorLog(string Message) 
+		{
+			MessageBuffer << "[ERROR] " << Message 
+						  << "\n";
+		}
+
+		inline void parser_diagnostics::WriteWarningLog(string Message) 
+		{
+			MessageBuffer << "[WARNING] " << Message
+					  	  << "\n";
+		}
+
+		inline void parser_diagnostics::WriteInfoLog(string Message) 
+		{
+			MessageBuffer << "[INFO] " << Message
+					  	  << "\n";
+		}
+
+		inline bool parser_diagnostics::SetErrorState(xml::error_codes XMLErrorCode)
 		{
 			if(!Error)
 			{
+				WriteInfoLog("setting error state...");
+
 				Error = true;
+				ErrorCode = XMLErrorCode;
+
 				return Error;
 			}
 
 			return !Error;
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedNameToken()
+		inline void parser_diagnostics::SetErrorMalformedNameToken(string NameToken)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MalformedNameToken))
 			{
-				ReadBuff(BytesRead);
+				MessageBuffer << "received malformed name token: "
+							  << NameToken << "\n";
 
-				ErrorBuff << "received malformed name token: "
-					<< ExtraStringBuff << "\n";
-
-				ExtraStringBuff.clear();
+				WriteBuffer.clear();
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMalformedStartTag()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MalformedStartTag))
 			{
-				ReadBuff(BytesRead);
+				// ReadBuff(BytesRead);
 
-				ErrorBuff << "received malformed start tag: "
-					<< ExtraStringBuff << "\n";
+				MessageBuffer << "received malformed start tag: "
+							  << WriteBuffer << "\n";
 
-				ExtraStringBuff.clear();
+				WriteBuffer.clear();
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingEndTag(string ExpectedText)
+		inline void parser_diagnostics::SetErrorMissingEndTag(string ExpectedText, string ReceivedText)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingEndTag))
 			{
-				ReadBuff(BytesRead);
-
-				ErrorBuff << "error missing end tag\n"
-					<< "received token: " << ExtraStringBuff
+				MessageBuffer << "error missing end tag\n"
+					<< "received token: " << ReceivedText
 					<< "expected token: " << ExpectedText
-					<< endl;
+					<< "\n";
 
-				ExtraStringBuff.clear();
+				WriteBuffer.clear();
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMissingXMLVersionAttribute()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingXMLVersionAttrib))
 			{
-				ErrorBuff << "error missing xml version attribute"
-					<< endl;
+				MessageBuffer << "error missing xml version attribute"
+							  << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::OutOfOrderDeclAttribute))
 			{
-				ErrorBuff << "out of order decl attribute"
-					<< endl;
+				MessageBuffer << "out of order decl attribute"
+							  << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::FileNotFound))
 			{
-				ErrorBuff << "failed to open file "
-					<< XMLSourceDiskPath << endl;
+				MessageBuffer << "failed to open file "
+						      << XMLSourceDiskPath << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorFailedToReadFile(const char* XMLSourceDiskPath)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::FailedToReadFile))
 			{
-				ErrorBuff << "failed to read file "
-					<< XMLSourceDiskPath << endl;
+				MessageBuffer << "failed to read file "
+							  << XMLSourceDiskPath << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMissingQuotes()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingQuotes))
 			{
-				ErrorBuff << "[ERROR] literal value missing quotes"
-					<< endl;
+				MessageBuffer << "[ERROR] literal value missing quotes"
+							  << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorUnclosedTag()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::UnclosedErrorTag))
 			{
-				ErrorBuff << "[ERROR] unclosed xml tag"
-					<< endl;
+				MessageBuffer << "[ERROR] unclosed xml tag"
+							  << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMissingAttVal()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingAttVal))
 			{
-				ErrorBuff << "[ERROR] missing attribute value"
-					<< endl;
+				MessageBuffer << "[ERROR] missing attribute value"
+							  << "\n";
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorIllegalNameStart()
+		inline void parser_diagnostics::SetErrorIllegalNameStart(char IllegalCharacter)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::IllegalNameStart))
 			{
-				ErrorBuff << "[ERROR] illegal name start char\n"
-					<< "        received " << Buffer()->sgetc() << endl;
+				MessageBuffer << "[ERROR] illegal name start char\n"
+							  << "        received " << IllegalCharacter << "\n";
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorIllegalLiteralVal()
+		inline void parser_diagnostics::SetErrorIllegalLiteralVal(char IllegalCharacter)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::IllegalLiteralVal))
 			{
-				ErrorBuff << "[ERROR] illegal literal value\n";
-				ErrorBuff << "        received " << Buffer()->sgetc() << endl;
+				MessageBuffer << "[ERROR] illegal literal value\n";
+				MessageBuffer << "        received " << IllegalCharacter << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMissingWS()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingWS))
 			{
-				ErrorBuff << "[ERROR] missing required "
+				MessageBuffer << "[ERROR] missing required "
 					<< "whitespace\n";
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedTypeTag()
+		inline void parser_diagnostics::SetErrorMalformedTypeTag(string NameToken)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MalformedTypeTag))
 			{
-				string MalformedNameToken;
-
-				MalformedNameToken.resize(BytesRead);
-
-				Buffer()->sgetn(MalformedNameToken.data(),
-								MalformedNameToken.size());
-
-				ErrorBuff << "[ERROR] malformed xml decl tag\n"
-					<< "        received " << MalformedNameToken
-					<< endl;
+				MessageBuffer << "[ERROR] malformed xml decl tag\n"
+							  << "        received " << NameToken << "\n";
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedDeclTag()
+		inline void parser_diagnostics::SetErrorMalformedDeclTag(string NameToken)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MalformedDeclTag))
 			{
-				string MalformedNameToken;
-
-				MalformedNameToken.resize(BytesRead);
-
-				Buffer()->sgetn(MalformedNameToken.data(),
-								MalformedNameToken.size());
-
-				ErrorBuff << "[ERROR] malformed xml decl tag\n"
-					<< "        received " << MalformedNameToken
-					<< endl;
+				MessageBuffer << "[ERROR] malformed xml decl tag\n"
+							  << "        received " << NameToken << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMalformedCommentTag()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MalformedCommentTag))
 			{
-				ErrorBuff << "[ERROR] malformed comment tag\n"
-					<< endl;
+				MessageBuffer << "[ERROR] malformed comment tag\n";
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorEncounteredInvalidStartTag()
+		inline void parser_diagnostics::SetErrorEncounteredInvalidStartTag(string Tag)
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::InvalidStartTag))
 			{
-				ReadBuff(BytesRead);
-
-				ErrorBuff << "[ERROR] invalid start tag encountered\n"
-					<< "        START TAG" << ExtraStringBuff
-					<< endl;
+				MessageBuffer << "[ERROR] invalid start tag encountered\n"
+							  << "        START TAG" << Tag << "\n";
 			}
 		}
 
 		inline void parser_diagnostics::SetErrorMissingAttribVal()
 		{
-			if(SetErrorState())
+			if(SetErrorState(xml::error_codes::MissingAttribVal))
 			{
-				ErrorBuff << "[ERROR] missing attrib val\n"
-					<< endl;
+				MessageBuffer << "[ERROR] missing attrib val\n";
 			}
 		}
 	}

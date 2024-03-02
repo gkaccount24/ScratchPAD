@@ -1,6 +1,5 @@
 #include "parser.h"
 
-
 /****
 ***** TYPE CASTING
 ***** HELPER MACROS
@@ -13,6 +12,8 @@
 #define XMLDeclVersionAttributeIndex 0
 #define XMLDeclEncodingAttributeIndex 1
 #define XMLDeclStandaloneAttributeIndex 2
+
+#define EMPTY_STRING_BUFFER ""
 
 namespace scratchpad
 {
@@ -29,10 +30,24 @@ namespace scratchpad
 		static const string_view XMLDeclEncodingAttribute = "encoding";
 		static const string_view XMLDeclStandaloneAttribute = "standalone";
 
-		parser::parser(xml::source* XMLSource):
-			Source(XMLSource)
+		parser::parser(xml::parser_diagnostics* ParserDiagnostics, 
+					   xml::source* XMLSource):
+			Diagnostics(ParserDiagnostics),
+			Source(XMLSource),
+			Buffer(Source->File.rdbuf()),
+			WSSkipped(0), BytesRead(0),
+			BytesWritten(0), LineCount(1),
+			Row(0), Col(0), 
+			ParsingState(xml::parsing_states::ParsingStartTag),
+			LastParsingState(xml::parsing_states::ParsingUnknown),
+			WriteBuffer(EMPTY_STRING_BUFFER), 
+			ExtraStringBuffer(EMPTY_STRING_BUFFER),
+			ContentBuffer(EMPTY_STRING_BUFFER), Error(false),
+			ErrorBuffer(EMPTY_STRING_BUFFER)
 		{
-			//
+			/**
+			*** PARSER CONSTRUCTOR
+			***/
 		}
 
 		parser::parser() { }
@@ -40,23 +55,23 @@ namespace scratchpad
 
 		inline bool parser::IsNL()
 		{
-			return (Buffer()->sgetc() == '\r' ||
-					Buffer()->sgetc() == '\n');
+			return (Buffer->sgetc() == '\r' ||
+					Buffer->sgetc() == '\n');
 		}
 
 		inline bool parser::IsWS()
 		{
-			return (Buffer()->sgetc() == ' '  ||
-					Buffer()->sgetc() == '\t' ||
-					Buffer()->sgetc() == '\r' ||
-					Buffer()->sgetc() == '\n');
+			return (Buffer->sgetc() == ' '  ||
+					Buffer->sgetc() == '\t' ||
+					Buffer->sgetc() == '\r' ||
+					Buffer->sgetc() == '\n');
 		}
 
 		inline void parser::TrimWS()
 		{
 			WSSkipped = 0;
 
-			while(Buffer()->in_avail() > 0 && IsWS() && !Error)
+			while(Buffer->in_avail() > 0 && IsWS() && !Error)
 			{
 				if(IsNL())
 				{
@@ -68,17 +83,13 @@ namespace scratchpad
 
 				// advance input buffer
 				// less bytes to read after a bump
-				Buffer()->sbumpc();
+				Buffer->sbumpc();
 			}
 		}
 
 		inline void parser::Close()
 		{
-			if(SourceFile.is_open())
-			{
-				SourceFile.clear();
-				SourceFile.close();
-			}
+			Source->Close();
 
 			NameTokens.clear();
 			Markup.clear();
@@ -95,19 +106,15 @@ namespace scratchpad
 		{
 			document* Doc = nullptr;
 
-			while(Buffer()->in_avail() > 0 && !Error)
+			while(Buffer->in_avail() > 0 && !Error)
 			{
-				char DebugChar = Buffer()->sgetc();
-
 				if(!StateMatches(parsing_states::ParsingContent))
 				{
 					TrimWS();
 				}
 
-				// DebugChar = Buffer()->sgetc();
-
 				ProcessState();
-				LexBuff();
+				Lex();
 			}
 
 			return Doc;
@@ -156,7 +163,7 @@ namespace scratchpad
 			{
 				// add bytes back
 				// to the input buffer
-				Buffer()->sungetc();
+				Buffer->sungetc();
 
 				Count--;
 			}
@@ -164,7 +171,7 @@ namespace scratchpad
 
 		inline bool parser::Match(const char* Bytes, size_t ByteCount)
 		{
-			if(ByteCount > Buffer()->in_avail())
+			if(ByteCount > Buffer->in_avail())
 			{
 				return false;
 			}
@@ -175,7 +182,7 @@ namespace scratchpad
 
 			for(size_t Idx = 0; Idx < ByteCount; Idx++)
 			{
-				if(Buffer()->sgetc() != Bytes[Idx])
+				if(Buffer->sgetc() != Bytes[Idx])
 				{
 					Matched = false;
 					break;
@@ -183,7 +190,7 @@ namespace scratchpad
 
 				// advance input 
 				// buffer
-				Buffer()->sbumpc();
+				Buffer->sbumpc();
 				BytesRead++;
 			}
 
@@ -192,7 +199,7 @@ namespace scratchpad
 
 		void parser::ProcessState()
 		{
-			char DebugChar = Buffer()->sgetc();
+			char DebugChar = Buffer->sgetc();
 
 			switch(ParsingState)
 			{
@@ -209,13 +216,13 @@ namespace scratchpad
 
 					while(!Error && TryToParseNameToken('='))
 					{
-						NameTokens.push_back(WriteBuff);
+						NameTokens.push_back(WriteBuffer);
 
-						Buffer()->sbumpc();
+						Buffer->sbumpc();
 
 						if(TryToParseLiteral())
 						{
-							if(markup_attribute* Attribute = new markup_attribute { NameTokens.back(), WriteBuff })
+							if(markup_attribute* Attribute = new markup_attribute { NameTokens.back(), WriteBuffer })
 							{
 								Markup.back()->Attributes.push_back(Attribute);
 							}
@@ -225,7 +232,7 @@ namespace scratchpad
 
 						if(!IsWS())
 						{
-							SetErrorMissingWS();
+							Diagnostics->SetErrorMissingWS();
 							break;
 						}
 
@@ -246,13 +253,13 @@ namespace scratchpad
 
 					while(!Error && Idx < AttributeCount && TryToParseNameToken('='))
 					{
-						NameTokens.push_back(WriteBuff);
+						NameTokens.push_back(WriteBuffer);
 
-						Buffer()->sbumpc();
+						Buffer->sbumpc();
 
 						if(TryToParseLiteral())
 						{
-							if(markup_attribute* Attribute = new markup_attribute { NameTokens.back(), WriteBuff })
+							if(markup_attribute* Attribute = new markup_attribute { NameTokens.back(), WriteBuffer })
 							{
 								if(NameTokens.back() == XMLDeclVersionAttribute)
 								{
@@ -275,7 +282,7 @@ namespace scratchpad
 
 						if(!IsWS())
 						{
-							SetErrorMissingWS();
+							Diagnostics->SetErrorMissingWS();
 							break;
 						}
 
@@ -285,17 +292,17 @@ namespace scratchpad
 					// final error checking
 					if(VersionIdx != 0)
 					{
-						SetErrorOutOfOrderDeclAttribute(VersionIdx, XMLDeclVersionAttributeIndex);
+						Diagnostics->SetErrorOutOfOrderDeclAttribute(VersionIdx, XMLDeclVersionAttributeIndex);
 					}
 
 					if(EncodingIdx != 1)
 					{
-						SetErrorOutOfOrderDeclAttribute(EncodingIdx, XMLDeclEncodingAttributeIndex);
+						Diagnostics->SetErrorOutOfOrderDeclAttribute(EncodingIdx, XMLDeclEncodingAttributeIndex);
 					}
 
 					if(StandaloneIdx != 2)
 					{
-						SetErrorOutOfOrderDeclAttribute(StandaloneIdx, XMLDeclStandaloneAttributeIndex);
+						Diagnostics->SetErrorOutOfOrderDeclAttribute(StandaloneIdx, XMLDeclStandaloneAttributeIndex);
 					}
 
 					SwitchState(parsing_states::ParsingEndTag);
@@ -304,13 +311,11 @@ namespace scratchpad
 			}
 		}
 
-		void parser::LexBuff()
+		void parser::Lex()
 		{
 			if(!Error)
 			{
-				char DebugChar = Buffer()->sgetc();
-
-				switch(Buffer()->sgetc())
+				switch(Buffer->sgetc())
 				{
 					case '>':
 					{
@@ -361,22 +366,20 @@ namespace scratchpad
 								{
 									// advance input buffer
 									// fewer bytes to read;
-									Buffer()->sbumpc();
-
-									DebugChar = Buffer()->sgetc();
+									Buffer->sbumpc();
 
 									if(TryToParseNameToken('>'))
 									{
-										Buffer()->sbumpc();
+										Buffer->sbumpc();
 
-										PushMarkup(markup_types::UserTag, move(WriteBuff));
+										PushMarkup(markup_types::UserTag, move(WriteBuffer));
 										SwitchState(parsing_states::ParsingContent);
 									}
 									else
 									{
 										if(!Error)
 										{
-											PushMarkup(markup_types::UserTag, move(WriteBuff));
+											PushMarkup(markup_types::UserTag, move(WriteBuffer));
 											SwitchState(parsing_states::ParsingAtts);
 										}
 									}
@@ -388,33 +391,22 @@ namespace scratchpad
 					}
 					case '?':
 					{
-						if(StateMatches(parsing_states::ParsingEndTag) && !TryToParseDeclEnd())
-						{
-							SetErrorMalformedDeclTag();
-
-							break;
-						}
-
-						// set end tag
+						/**
+						*** SET ENDTAG
+						**/
 						Markup.back()->EndTag = XMLDeclEndTag.data();
 
 						break;
 					}
 					case '-':
 					{
-						if(StateMatches(parsing_states::ParsingEndTag) && !TryToParseCommentEnd())
-						{
-							SetErrorMalformedCommentTag();
-
-							break;
-						}
-
-						// set end tag
+						/**
+						*** SET COMMENT END TAG
+						**/
 						Markup.back()->EndTag = CommentEndTag.data();
 
 						break;
 					}
-					
 				}
 			}
 		}
@@ -423,29 +415,29 @@ namespace scratchpad
 		{
 			bool Success = true;
 
-			WriteBuff.clear();
+			WriteBuffer.clear();
 
 			BytesRead = 0;
 
-			while(Buffer()->in_avail() > 0)
+			while(Buffer->in_avail() > 0)
 			{
-				if(Buffer()->sgetc() == '<' ||
-				   Buffer()->sgetc() == '&')
+				if(Buffer->sgetc() == '<' ||
+				   Buffer->sgetc() == '&')
 				{
 					Success = false;
 					break;
 				}
 
-				Buffer()->sbumpc();
+				Buffer->sbumpc();
 				BytesRead++;
 			}
 
-			WriteBuff.resize(BytesRead);
+			WriteBuffer.resize(BytesRead);
 
-			Buffer()->sgetn(WriteBuff.data(), 
-							WriteBuff.size());
+			Buffer->sgetn(WriteBuffer.data(), 
+							WriteBuffer.size());
 
-			ContentBuff = WriteBuff;
+			ContentBuffer = WriteBuffer;
 
 			return Success;
 		}
@@ -589,14 +581,14 @@ namespace scratchpad
 			const int LowerCaseLower = StaticCast(int, 'a');
 			const int LowerCaseHigher = StaticCast(int, 'z');
 
-			int DebugVal = Buffer()->sgetc();
+			int DebugVal = Buffer->sgetc();
 
-			bool IsLower = (StaticCast(int, Buffer()->sgetc()) >= LowerCaseLower &&
-							StaticCast(int, Buffer()->sgetc()) <= LowerCaseHigher);
-			bool IsUpper = (StaticCast(int, Buffer()->sgetc()) >= UpperCaseLower &&
-							StaticCast(int, Buffer()->sgetc()) <= UpperCaseHigher);
+			bool IsLower = (StaticCast(int, Buffer->sgetc()) >= LowerCaseLower &&
+							StaticCast(int, Buffer->sgetc()) <= LowerCaseHigher);
+			bool IsUpper = (StaticCast(int, Buffer->sgetc()) >= UpperCaseLower &&
+							StaticCast(int, Buffer->sgetc()) <= UpperCaseHigher);
 
-			bool IsUnderscore = Buffer()->sgetc() == '_';
+			bool IsUnderscore = Buffer->sgetc() == '_';
 
 			return(IsLower || IsUpper || IsUnderscore);
 		}
@@ -616,11 +608,11 @@ namespace scratchpad
 			***/
 			if(!TryToParseNameStart())
 			{
-				SetErrorIllegalNameStart();
+				Diagnostics->SetErrorIllegalNameStart(Buffer->sgetc());
 				return !Error;
 			}
 
-			WriteBuff.clear();
+			WriteBuffer.clear();
 
 			// reset byte counter
 			// to track name token size
@@ -631,9 +623,9 @@ namespace scratchpad
 			bool ParsedToDelim = false;
 			bool ParsedToWS = false;
 
-			while(Buffer()->in_avail() > 0)
+			while(Buffer->in_avail() > 0)
 			{
-				if(Buffer()->sgetc() == Delim)
+				if(Buffer->sgetc() == Delim)
 				{
 					ParsedToDelim = true;
 					break;
@@ -649,7 +641,7 @@ namespace scratchpad
 
 					// advance buffer
 					// fewer bytes to read
-					Buffer()->sbumpc();
+					Buffer->sbumpc();
 				}
 			}
 
@@ -657,15 +649,15 @@ namespace scratchpad
 			{
 				Rewind(BytesRead);
 
-				WriteBuff.resize(BytesRead);
+				WriteBuffer.resize(BytesRead);
 
-				Buffer()->sgetn(WriteBuff.data(), 
-								WriteBuff.size());
+				Buffer->sgetn(WriteBuffer.data(), 
+								WriteBuffer.size());
 			}
 			else
 			{
 				// maybe an error to rer
-				SetErrorMalformedStartTag();
+				Diagnostics->SetErrorMalformedStartTag();
 
 			}
 
@@ -674,15 +666,15 @@ namespace scratchpad
 
 		inline bool parser::TryToParseLiteral()
 		{
-			if(Buffer()->sgetc() != '\"')
+			if(Buffer->sgetc() != '\"')
 			{
-				SetErrorMissingAttribVal();
+				Diagnostics->SetErrorMissingAttribVal();
 				return !Error;
 			}
 
-			Buffer()->sbumpc();
+			Buffer->sbumpc();
 
-			WriteBuff.clear();
+			WriteBuffer.clear();
 			BytesRead = 0;
 
 			const char IllegalCharacters[] 
@@ -690,35 +682,35 @@ namespace scratchpad
 				'<', '&'
 			};
 
-			while(Buffer()->in_avail() > 0  && 
-				  Buffer()->sgetc() != '\"' && 
+			while(Buffer->in_avail() > 0  && 
+				  Buffer->sgetc() != '\"' && 
 				  !Error)
 			{
-				if(Buffer()->sgetc() == IllegalCharacters[0] && 
-				   Buffer()->sgetc() == IllegalCharacters[1])
+				if(Buffer->sgetc() == IllegalCharacters[0] && 
+				   Buffer->sgetc() == IllegalCharacters[1])
 				{
-					SetErrorIllegalLiteralVal();
+					Diagnostics->SetErrorIllegalLiteralVal(Buffer->sgetc());
 					break;
 				}
 
-				Buffer()->sbumpc();
+				Buffer->sbumpc();
 				BytesRead++;
 			}
 
-			if(Buffer()->sgetc() != '\"')
+			if(Buffer->sgetc() != '\"')
 			{
-				SetErrorMissingQuotes();
+				Diagnostics->SetErrorMissingQuotes();
 				return !Error;
 			}
 
 			Rewind(BytesRead);
 
-			WriteBuff.resize(BytesRead);
+			WriteBuffer.resize(BytesRead);
 
-			Buffer()->sgetn(WriteBuff.data(), 
-							WriteBuff.size());
+			Buffer->sgetn(WriteBuffer.data(), 
+							WriteBuffer.size());
 
-			Buffer()->sbumpc();
+			Buffer->sbumpc();
 			return !Error;
 		}
 	}
