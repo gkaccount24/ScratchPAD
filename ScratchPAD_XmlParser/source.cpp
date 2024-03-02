@@ -6,11 +6,11 @@ namespace scratchpad
 {
 	namespace xml
 	{
-		source::source(xml::parser_diagnostics* ParserDiagnostics, string SourcePath):
+		source::source(string SourcePath):
 			Path(SourcePath),
 			File(SourcePath),
 			FileSize(0),
-			Diagnostics(ParserDiagnostics)
+			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
 			/***
 			***** primary source file 
@@ -22,7 +22,7 @@ namespace scratchpad
 			Path(EMPTY_BUFFER_STRING),
 			File(EMPTY_BUFFER_STRING),
 			FileSize(0),
-			Diagnostics(nullptr)
+			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
 			/***
 			***** default
@@ -37,6 +37,7 @@ namespace scratchpad
 				File.close();
 			}
 		}
+
 
 		bool source::Open(string SourcePath)
 		{

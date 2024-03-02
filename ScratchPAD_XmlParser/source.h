@@ -1,7 +1,7 @@
 #ifndef XML_SOURCE_H
 #define XML_SOURCE_H
 
-#include "parser_diagnostics.h"
+#include "diagnostics.h"
 
 #include <string>
 #include <fstream>
@@ -18,7 +18,7 @@ namespace scratchpad
 
 		public:
 
-			 source(xml::parser_diagnostics* ParserDiagnostics, string SourcePath);
+			 source(string SourcePath);
 
 		public:
 
@@ -38,10 +38,10 @@ namespace scratchpad
 			***** SOURCE
 			***** FILE HANDLE
 			****/
-			string					 Path;
-			fstream					 File;
-			size_t				     FileSize;
-			xml::parser_diagnostics* Diagnostics;
+			string			  Path;
+			fstream			  File;
+			size_t			  FileSize;
+			xml::diagnostics* Diagnostics;
 		};
 	}
 }

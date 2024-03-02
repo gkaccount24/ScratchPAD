@@ -1,10 +1,10 @@
 #ifndef XML_PARSER_H
 #define XML_PARSER_H
 
+#include "diagnostics.h"
 #include "source.h"
 #include "document.h"
 #include "markup.h"
-#include "parser_diagnostics.h"
 
 #include <string_view>
 #include <vector>
@@ -40,8 +40,7 @@ namespace scratchpad
 
 		public:
 
-			explicit parser(xml::parser_diagnostics* ParserDiagnostics, 
-							xml::source* XMLSource);
+			explicit parser(xml::source* XMLSource);
 
 			 parser();
 			~parser();
@@ -115,11 +114,6 @@ namespace scratchpad
 
 		private:
 			/****
-			***** XML PARSER DIAGNOSTICS
-			****/
-			xml::parser_diagnostics* Diagnostics;
-
-			/****
 			***** XML SOURCE DATA
 			****/
 			xml::source* Source;
@@ -156,11 +150,12 @@ namespace scratchpad
 			string		 ContentBuffer;
 
 			/****
-			***** ERROR
+			***** ERROR & 
+			***** PARSER MESSAGE BUFFER 
+			***** FOR WRITING/LOGGING
 			***** DATA
 			****/
 			bool		 Error;
-			stringstream ErrorBuffer;
 
 			/****
 			***** NAME
@@ -169,6 +164,12 @@ namespace scratchpad
 			****/
 			vector<string>		 NameTokens;
 			vector<xml::markup*> Markup;
+
+		public:
+			/****
+			***** XML PARSER DIAGNOSTICS
+			****/
+			xml::diagnostics* Diagnostics;
 		};
 	}
 }

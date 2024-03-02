@@ -13,6 +13,7 @@ namespace scratchpad
 	{
 		enum error_codes
 		{
+			Success			 = 0,
 			IllegalNameStart = -100,
 			IllegalLiteralVal = -101,
 			MalformedDeclTag = -102,
@@ -34,19 +35,19 @@ namespace scratchpad
 			Unknown
 		};
 
-		class parser_diagnostics
+		class diagnostics
 		{
 
 		private:
 
-			 parser_diagnostics(stringstream& ParserMessageBuffer);
-			~parser_diagnostics();
+			 diagnostics();
+			~diagnostics();
 
 		public:
 
-			static parser_diagnostics* ParserDiagnostics(stringstream& ParserMessageBuffer)
+			static diagnostics* ParserDiagnostics()
 			{
-				static parser_diagnostics Diagnostics(ParserMessageBuffer);
+				static diagnostics Diagnostics;
 
 				return &Diagnostics;
 			}
@@ -89,10 +90,11 @@ namespace scratchpad
 
 		private:
 
-			stringstream& MessageBuffer;
-			string		  WriteBuffer;
+			stringstream MessageBuffer;
+			string		 WriteBuffer;
 
-			error_codes   ErrorCode;
+		public:
+			error_codes   ExitCode;
 			bool		  Error;
 
 		};

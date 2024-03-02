@@ -30,9 +30,7 @@ namespace scratchpad
 		static const string_view XMLDeclEncodingAttribute = "encoding";
 		static const string_view XMLDeclStandaloneAttribute = "standalone";
 
-		parser::parser(xml::parser_diagnostics* ParserDiagnostics, 
-					   xml::source* XMLSource):
-			Diagnostics(ParserDiagnostics),
+		parser::parser(xml::source* XMLSource):
 			Source(XMLSource),
 			Buffer(Source->File.rdbuf()),
 			WSSkipped(0), BytesRead(0),
@@ -43,15 +41,34 @@ namespace scratchpad
 			WriteBuffer(EMPTY_STRING_BUFFER), 
 			ExtraStringBuffer(EMPTY_STRING_BUFFER),
 			ContentBuffer(EMPTY_STRING_BUFFER), Error(false),
-			ErrorBuffer(EMPTY_STRING_BUFFER)
+			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
 			/**
 			*** PARSER CONSTRUCTOR
 			***/
 		}
 
-		parser::parser() { }
-		parser::~parser() { }
+		parser::parser():
+			Source(nullptr),
+			Buffer(nullptr),
+			WSSkipped(0), BytesRead(0),
+			BytesWritten(0), LineCount(1),
+			Row(0), Col(0), 
+			ParsingState(xml::parsing_states::ParsingStartTag),
+			LastParsingState(xml::parsing_states::ParsingUnknown),
+			WriteBuffer(EMPTY_STRING_BUFFER), 
+			ExtraStringBuffer(EMPTY_STRING_BUFFER),
+			ContentBuffer(EMPTY_STRING_BUFFER), Error(false),
+			Diagnostics(xml::diagnostics::ParserDiagnostics())
+
+		{ }
+
+		parser::~parser() 
+		{
+			/**
+			*** PARSER DESTRUCTOR
+			***/
+		}
 
 		inline bool parser::IsNL()
 		{

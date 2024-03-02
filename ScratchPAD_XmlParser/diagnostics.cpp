@@ -1,4 +1,4 @@
-#include "parser_diagnostics.h"
+#include "diagnostics.h"
 
 #define EMPTY_BUFFER_STRING ""
 
@@ -9,49 +9,49 @@ namespace scratchpad
 		/****
 		***** DIAGNOSTIC CONSTRUCTOR
 		****/
-		parser_diagnostics::parser_diagnostics(stringstream& ParserMessageBuffer):
-			MessageBuffer(ParserMessageBuffer),
+		diagnostics::diagnostics():
+			MessageBuffer(EMPTY_BUFFER_STRING),
 			WriteBuffer(EMPTY_BUFFER_STRING),
-			ErrorCode(xml::error_codes::Unknown),
+			ExitCode(xml::error_codes::Success),
 			Error(false)
 		{ }
 
 		/****
 		***** DIAGNOSTIC DESTRUCTOR 
 		****/
-		parser_diagnostics::~parser_diagnostics() 
+		diagnostics::~diagnostics() 
 		{
-			WriteInfoLog("destroying parser_diagnostics");
+			WriteInfoLog("destroying diagnostics");
 
 			Error = false;
 		}
 
-		inline void parser_diagnostics::WriteErrorLog(string Message) 
+		void diagnostics::WriteErrorLog(string Message) 
 		{
 			MessageBuffer << "[ERROR] " << Message 
 						  << "\n";
 		}
 
-		inline void parser_diagnostics::WriteWarningLog(string Message) 
+		void diagnostics::WriteWarningLog(string Message) 
 		{
 			MessageBuffer << "[WARNING] " << Message
 					  	  << "\n";
 		}
 
-		inline void parser_diagnostics::WriteInfoLog(string Message) 
+		void diagnostics::WriteInfoLog(string Message) 
 		{
 			MessageBuffer << "[INFO] " << Message
 					  	  << "\n";
 		}
 
-		inline bool parser_diagnostics::SetErrorState(xml::error_codes XMLErrorCode)
+		bool diagnostics::SetErrorState(xml::error_codes XMLErrorCode)
 		{
 			if(!Error)
 			{
 				WriteInfoLog("setting error state...");
 
-				Error = true;
-				ErrorCode = XMLErrorCode;
+				Error	 = true;
+				ExitCode = XMLErrorCode;
 
 				return Error;
 			}
@@ -59,7 +59,7 @@ namespace scratchpad
 			return !Error;
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedNameToken(string NameToken)
+		void diagnostics::SetErrorMalformedNameToken(string NameToken)
 		{
 			if(SetErrorState(xml::error_codes::MalformedNameToken))
 			{
@@ -70,7 +70,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedStartTag()
+		void diagnostics::SetErrorMalformedStartTag()
 		{
 			if(SetErrorState(xml::error_codes::MalformedStartTag))
 			{
@@ -83,7 +83,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingEndTag(string ExpectedText, string ReceivedText)
+		void diagnostics::SetErrorMissingEndTag(string ExpectedText, string ReceivedText)
 		{
 			if(SetErrorState(xml::error_codes::MissingEndTag))
 			{
@@ -96,7 +96,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingXMLVersionAttribute()
+		void diagnostics::SetErrorMissingXMLVersionAttribute()
 		{
 			if(SetErrorState(xml::error_codes::MissingXMLVersionAttrib))
 			{
@@ -105,7 +105,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder)
+		void diagnostics::SetErrorOutOfOrderDeclAttribute(int ReceivedOrder, int ExpectedOrder)
 		{
 			if(SetErrorState(xml::error_codes::OutOfOrderDeclAttribute))
 			{
@@ -114,7 +114,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
+		void diagnostics::SetErrorFileNotOpen(const char* XMLSourceDiskPath)
 		{
 			if(SetErrorState(xml::error_codes::FileNotFound))
 			{
@@ -123,7 +123,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorFailedToReadFile(const char* XMLSourceDiskPath)
+		void diagnostics::SetErrorFailedToReadFile(const char* XMLSourceDiskPath)
 		{
 			if(SetErrorState(xml::error_codes::FailedToReadFile))
 			{
@@ -132,7 +132,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingQuotes()
+		void diagnostics::SetErrorMissingQuotes()
 		{
 			if(SetErrorState(xml::error_codes::MissingQuotes))
 			{
@@ -141,7 +141,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorUnclosedTag()
+		void diagnostics::SetErrorUnclosedTag()
 		{
 			if(SetErrorState(xml::error_codes::UnclosedErrorTag))
 			{
@@ -150,7 +150,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingAttVal()
+		void diagnostics::SetErrorMissingAttVal()
 		{
 			if(SetErrorState(xml::error_codes::MissingAttVal))
 			{
@@ -159,7 +159,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorIllegalNameStart(char IllegalCharacter)
+		void diagnostics::SetErrorIllegalNameStart(char IllegalCharacter)
 		{
 			if(SetErrorState(xml::error_codes::IllegalNameStart))
 			{
@@ -168,7 +168,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorIllegalLiteralVal(char IllegalCharacter)
+		void diagnostics::SetErrorIllegalLiteralVal(char IllegalCharacter)
 		{
 			if(SetErrorState(xml::error_codes::IllegalLiteralVal))
 			{
@@ -177,7 +177,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingWS()
+		void diagnostics::SetErrorMissingWS()
 		{
 			if(SetErrorState(xml::error_codes::MissingWS))
 			{
@@ -186,7 +186,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedTypeTag(string NameToken)
+		void diagnostics::SetErrorMalformedTypeTag(string NameToken)
 		{
 			if(SetErrorState(xml::error_codes::MalformedTypeTag))
 			{
@@ -195,7 +195,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedDeclTag(string NameToken)
+		void diagnostics::SetErrorMalformedDeclTag(string NameToken)
 		{
 			if(SetErrorState(xml::error_codes::MalformedDeclTag))
 			{
@@ -204,7 +204,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMalformedCommentTag()
+		void diagnostics::SetErrorMalformedCommentTag()
 		{
 			if(SetErrorState(xml::error_codes::MalformedCommentTag))
 			{
@@ -212,7 +212,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorEncounteredInvalidStartTag(string Tag)
+		void diagnostics::SetErrorEncounteredInvalidStartTag(string Tag)
 		{
 			if(SetErrorState(xml::error_codes::InvalidStartTag))
 			{
@@ -221,7 +221,7 @@ namespace scratchpad
 			}
 		}
 
-		inline void parser_diagnostics::SetErrorMissingAttribVal()
+		void diagnostics::SetErrorMissingAttribVal()
 		{
 			if(SetErrorState(xml::error_codes::MissingAttribVal))
 			{
