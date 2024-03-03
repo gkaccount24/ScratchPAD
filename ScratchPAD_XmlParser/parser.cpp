@@ -15,13 +15,16 @@
 
 #define EMPTY_STRING_BUFFER ""
 
+using std::isalpha;
+using std::isdigit;
+
 namespace scratchpad
 {
 	namespace xml
 	{
-		static const string_view XMLDeclStartTag = "<?xml";
+		static const string_view XMLDeclStartTag = "xml";
 		static const string_view XMLDeclEndTag	 = "?>";
-		static const string_view XMLDocTypeStartTag = "<!DOCTYPE";
+		static const string_view XMLDocTypeStartTag = "DOCTYPE";
 		static const string_view XMLDocTypeEndTag = ">";
 		static const string_view CommentStartTag = "<!--";
 		static const string_view CommentEndTag   = "-->";
@@ -40,7 +43,6 @@ namespace scratchpad
 			ParsingState(xml::parsing_states::ParsingStartTag),
 			LastParsingState(xml::parsing_states::ParsingUnknown),
 			WriteBuffer(EMPTY_STRING_BUFFER), 
-			ExtraStringBuffer(EMPTY_STRING_BUFFER),
 			ContentBuffer(EMPTY_STRING_BUFFER), Error(false),
 			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
@@ -407,6 +409,30 @@ namespace scratchpad
 					case '\n':
 					case ' ':
 					{
+
+						if(StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+							/***
+							**** MATCH NAME TOKEN AGAINST
+							**** EXPECTED NAME TOKEN
+							***/
+
+							if(WriteBuffer != NextExpectedToken)
+							{
+								Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+								/**
+								*** SET ERROR STATE
+								**/
+							}
+
+							/***
+							**** SWITCH STATE
+							***/
+
+							// SwitchState(xml::parsing_states::Parsing
+						}
+
 						if(IsNL())
 						{
 							LineCount++;
@@ -420,6 +446,18 @@ namespace scratchpad
 
 					case '?':
 					{
+						if(StateMatches(xml::parsing_states::ParsingStartTag))
+						{
+							/****
+							***** SWITCH STATE
+							***** Parsing START TAG
+							***** NEEDS TO MATCH ExpectedToken
+							****/
+							SwitchState(xml::parsing_states::ParsingNameToken);
+
+							NextExpectedToken = XMLDeclStartTag;
+						}
+
 						if(StateMatches(xml::parsing_states::ParsingDeclAtts) &&
 						   MarkupTypeMatches(xml::markup_types::DocDeclTag))
 						{
@@ -451,6 +489,7 @@ namespace scratchpad
 						   StateMatches(xml::parsing_states::ParsingNameToken) ||
 						   StateMatches(xml::parsing_states::ParsingContent))
 						{
+
 							Diagnostics->WriteInfoLog("parsing literals, name tokens, tag content\n");
 
 						}
@@ -458,6 +497,7 @@ namespace scratchpad
 						else if(StateMatches(xml::parsing_states::ParsingComment))
 						{
 							Diagnostics->WriteInfoLog("parsing comment \n");
+
 							/***
 							**** PARSING COMMENT
 							***/
@@ -518,6 +558,8 @@ namespace scratchpad
 							**** EXPECTED LEXEME
 							**/
 
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
 							break;
 						}
 
@@ -529,28 +571,32 @@ namespace scratchpad
 						if(StateMatches(xml::parsing_states::ParsingLiteral) ||
 						   StateMatches(xml::parsing_states::ParsingContent))
 						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+
 							Diagnostics->SetErrorState(xml::error_codes::Undefined);
 
 							break;
 						}
-
-						/***
-						**** ERROR ENCOUNTERED
-						**** EXPECTED LEXEME
-						**/
 
 						break;
 					}
 
 					case '/':
 					{
-						if(StateMatches(xml::parsing_states::ParsingContent) ||
-						   StateMatches(xml::parsing_states::ParsingLiteral) ||
-						   StateMatches(xml::parsing_states::ParsingEndTag))
+						if(!StateMatches(xml::parsing_states::ParsingContent) ||
+						   !StateMatches(xml::parsing_states::ParsingLiteral) ||
+						   !StateMatches(xml::parsing_states::ParsingEndTag))
 						{
 							/**
 							*** SET COMMENT END TAG
 							**/
+
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+							break;
 						}
 
 						break;
@@ -631,6 +677,56 @@ namespace scratchpad
 						***** For processing non structural 
 						***** markup lexemes
 						****/
+
+						if(StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+							Diagnostics->WriteInfoLog("scanning name token...\n");
+
+							if(BytesRead == 0)
+							{
+								Diagnostics->WriteInfoLog("parsing name token start\n");
+
+								/*** [4]		NameStartChar	   :: = ":" | [A - Z] | "_" | [a - z] | [#xC0 - #xD6] | 
+								****                                          [#xD8 - #xF6] | [#xF8 - #x2FF] | [#x370 - #x37D] | 
+								****                                          [#x37F - #x1FFF] | [#x200C - #x200D] | [#x2070 - #x218F] | 
+								****                                          [#x2C00 - #x2FEF] | [#x3001 - #xD7FF] | [#xF900 - #xFDCF] | 
+								****                                          [#xFDF0 - #xFFFD] | [#x10000 - #xEFFFF]*/
+
+								const int UpperCaseLower = StaticCast(int, 'A');
+								const int UpperCaseHigher = StaticCast(int, 'Z');
+
+								const int LowerCaseLower = StaticCast(int, 'a');
+								const int LowerCaseHigher = StaticCast(int, 'z');
+
+								int DebugVal = Buffer->sgetc();
+
+								bool IsLower = (StaticCast(int, Buffer->sgetc()) >= LowerCaseLower &&
+												StaticCast(int, Buffer->sgetc()) <= LowerCaseHigher);
+								bool IsUpper = (StaticCast(int, Buffer->sgetc()) >= UpperCaseLower &&
+												StaticCast(int, Buffer->sgetc()) <= UpperCaseHigher);
+
+								bool IsUnderscore = Buffer->sgetc() == '_';
+
+								bool IsValid = (IsLower || IsUpper || IsUnderscore);
+
+								if(!IsValid)
+								{
+									Diagnostics->SetErrorIllegalNameStart(Buffer->sgetc());
+								}
+							}
+							else
+							{
+								if(!isalpha(Buffer->sgetc()) ||
+								   !isdigit(Buffer->sgetc()))
+								{
+									/***
+									**** SET ERROR STATE
+									***/
+
+									Diagnostics->SetErrorState(xml::error_codes::Undefined);
+								}
+							}
+						}
 
 						break;
 					}
@@ -802,27 +898,7 @@ namespace scratchpad
 
 		inline bool parser::TryToParseNameStart()
 		{
-			/*** [4]		NameStartChar	   :: = ":" | [A - Z] | "_" | [a - z] | [#xC0 - #xD6] | 
-			****                                          [#xD8 - #xF6] | [#xF8 - #x2FF] | [#x370 - #x37D] | 
-			****                                          [#x37F - #x1FFF] | [#x200C - #x200D] | [#x2070 - #x218F] | 
-			****                                          [#x2C00 - #x2FEF] | [#x3001 - #xD7FF] | [#xF900 - #xFDCF] | 
-			****                                          [#xFDF0 - #xFFFD] | [#x10000 - #xEFFFF]*/
-			const int UpperCaseLower = StaticCast(int, 'A');
-			const int UpperCaseHigher = StaticCast(int, 'Z');
-
-			const int LowerCaseLower = StaticCast(int, 'a');
-			const int LowerCaseHigher = StaticCast(int, 'z');
-
-			int DebugVal = Buffer->sgetc();
-
-			bool IsLower = (StaticCast(int, Buffer->sgetc()) >= LowerCaseLower &&
-							StaticCast(int, Buffer->sgetc()) <= LowerCaseHigher);
-			bool IsUpper = (StaticCast(int, Buffer->sgetc()) >= UpperCaseLower &&
-							StaticCast(int, Buffer->sgetc()) <= UpperCaseHigher);
-
-			bool IsUnderscore = Buffer->sgetc() == '_';
-
-			return(IsLower || IsUpper || IsUnderscore);
+			return true;
 		}
 
 		bool parser::TryToParseNameToken(char Delim)

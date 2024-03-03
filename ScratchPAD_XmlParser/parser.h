@@ -208,7 +208,8 @@ namespace scratchpad
 			***** Expected Char
 			****/
 
-			char NextExpected;
+			char   NextExpected;
+			string NextExpectedToken;
 
 		public:
 			/****
