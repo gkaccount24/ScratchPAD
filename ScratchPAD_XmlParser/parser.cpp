@@ -240,6 +240,11 @@ namespace scratchpad
 			}
 		}
 
+		inline bool parser::LastStateMatches(parsing_states XMLParsingState)
+		{
+			return LastParsingState == XMLParsingState;
+		}
+
 		inline bool parser::StateMatches(parsing_states XMLParsingState)
 		{
 			return ParsingState == XMLParsingState;
@@ -407,11 +412,26 @@ namespace scratchpad
 				{
 					case '?':
 					{
-						if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						if(StateMatches(xml::parsing_states::ParsingDeclAtts) &&
+						   MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						{
+							Diagnostics->WriteInfoLog("parsing end tag\n");
+
+							/**
+							*** SWITCH STATE
+							*** PARSING END TAG
+							**/
+
+							SwitchState(xml::parsing_states::ParsingEndTag);
+						}
+						else
 						{
 							/**
-							*** verify end tag is valid
+							*** SET ERROR STATE
+							*** UNCOSED START TAG
 							**/
+	
+							Diagnostics->SetErrorUnclosedTag();
 						}
 
 						break;
@@ -419,11 +439,27 @@ namespace scratchpad
 
 					case '-':
 					{
-						if(MarkupTypeMatches(xml::markup_types::CommentTag))
+						if(StateMatches(xml::parsing_states::ParsingLiteral)   ||
+						   StateMatches(xml::parsing_states::ParsingNameToken) ||
+						   StateMatches(xml::parsing_states::ParsingContent))
 						{
-							/**
-							*** verify end tag is valid
-							**/
+							// WriteBuffer << Buffer->sgetc();
+
+						}
+
+						else if(StateMatches(xml::parsing_states::ParsingComment))
+						{
+							/***
+							**** PARSING COMMENT
+							***/
+
+							if(!MarkupTypeMatches(xml::markup_types::CommentTag))
+							{
+								/***
+								**** SET ERROR
+								**** STATE
+								***/
+							}
 						}
 
 						break;
@@ -431,25 +467,60 @@ namespace scratchpad
 
 					case '=':
 					{
-						if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
+
+						if(StateMatches(xml::parsing_states::ParsingDeclAtts))
 						{
+							if(!MarkupTypeMatches(xml::markup_types::DocDeclTag))
+							{
+								/**
+								**** SetErrorState();
+								*** ERROR failed
+								**/
+
+								break;
+							}
+
+							/**
+							*** Parsing Decl attributes
+							*** we need to keep track of
+							*** attribute index
+							**/
+
+							break;
+						}
+						else if(StateMatches(xml::parsing_states::ParsingAtts))
+						{
+							/**
+							*** Parsing generic 
+							*** markup attributes
+							**/
+						}
+
+						// if()
+						// if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						//{
 							/***
 							**** Switch state
 							**** Parse doc AttribLiteralValue
 							**/
-						}
+
+							// SwitchState(xml::parsing_states::ParsingLiteral);
+						//}
 
 						break;
 					}
 
 					case '"':
 					{
-						if(!StateMatches(xml::parsing_states::ParsingLiteral))
+						if(!StateMatches(xml::parsing_states::ParsingLiteral) || 
+						   !StateMatches(xml::parsing_states::ParsingContent))
 						{
 							/***
 							**** ERROR ENCOUNTERED
 							**** EXPECTED LEXEME
 							**/
+
+							break;
 						}
 
 						break;
@@ -457,6 +528,8 @@ namespace scratchpad
 
 					case '&':
 					{
+						if(StateMatches())
+
 						/***
 						**** ERROR ENCOUNTERED
 						**** EXPECTED LEXEME
@@ -481,6 +554,22 @@ namespace scratchpad
 
 					case '>':
 					{
+						if(!LastStateMatches(xml::parsing_states::ParsingStartTag) ||
+						   !LastStateMatches(xml::parsing_states::ParsingEndTag))
+						{
+							Diagnostics->WriteErrorLog("unexpected lexeme\n");
+
+							/****
+							****** Set Error State
+							****** Unexpected Lexeme
+							****/
+
+							Diagnostics->SetErrorMalformedStartTag();
+
+							break;
+						}
+
+						//SwitchState(xml::parsing_states::ParsingContent);
 						//if(!StateMatches(xml::parsing_states::ParsingStartTag))
 						//{
 						//	/**
@@ -491,7 +580,7 @@ namespace scratchpad
 						//	break;
 						//}
 
-						//SwitchState(xml::parsing_states::ParsingContent);
+						Diagnostics->WriteInfoLog("parsed start tag\n");
 
 						break;
 					}
@@ -503,6 +592,8 @@ namespace scratchpad
 					{
 						if(StateMatches(xml::parsing_states::ParsingStartTag))
 						{
+							Diagnostics->WriteInfoLog("switched state: now parsing start tag");
+
 							/****
 							***** SWITCH STATE
 							***** PARSE NAMETOKEN
@@ -511,8 +602,11 @@ namespace scratchpad
 						}
 						else if(StateMatches(xml::parsing_states::ParsingContent))
 						{	
+							Diagnostics->WriteInfoLog("switched state: now parsing end tag");
+
 							/****
-							***** SWITCH STATE ParsingEndTag
+							***** SWITCH STATE 
+							***** ParsingEndTag
 							****/
 							SwitchState(xml::parsing_states::ParsingEndTag);
 						}

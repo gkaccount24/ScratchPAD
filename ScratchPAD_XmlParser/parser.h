@@ -84,6 +84,7 @@ namespace scratchpad
 			***** RELATED METHODS
 			****/
 			bool StateMatches(parsing_states XMLParsingState);
+			bool LastStateMatches(parsing_states XMLParsingState);
 			void SwitchState(parsing_states NextState);
 
 			/****
@@ -170,6 +171,9 @@ namespace scratchpad
 			size_t Row;
 			size_t Col;
 
+			size_t MarkupAttributeIndex;
+			size_t MarkupDepth;
+
 			/****
 			***** PARSING STATE 
 			***** DATA
@@ -205,7 +209,7 @@ namespace scratchpad
 			***** Expected Char
 			****/
 
-			char Expected;
+			char NextExpected;
 
 		public:
 			/****
