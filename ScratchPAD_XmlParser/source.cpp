@@ -10,74 +10,96 @@ namespace scratchpad
 			Path(SourcePath),
 			File(SourcePath),
 			FileSize(0),
+			Buffer(EMPTY_BUFFER_STRING),
 			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
 			/***
 			***** primary source file 
 			***** constructor
 			***/
+			Diagnostics->WriteInfoLog("creating xml source...");
+
+			if(File.is_open())
+			{
+				File.seekg(0, std::ios_base::end);
+				FileSize = File.tellg();
+				File.seekg(0, std::ios_base::beg);
+			}
 		}
 
 		source::source():
 			Path(EMPTY_BUFFER_STRING),
 			File(EMPTY_BUFFER_STRING),
 			FileSize(0),
+			Buffer(EMPTY_BUFFER_STRING),
 			Diagnostics(xml::diagnostics::ParserDiagnostics())
 		{
 			/***
 			***** default
 			***** constructor
 			***/
+			Diagnostics->WriteInfoLog("creating xml source...");
 		}
 
 		source::~source()
 		{
+			Diagnostics->WriteInfoLog("destroying xml source...");
+
 			if(File.is_open())
 			{
 				File.close();
 			}
 		}
 
-
 		bool source::Open(string SourcePath)
 		{
-			if(File.is_open())
+			if(!File.is_open())
 			{
-				File.close();
+				File.open(Path);
 
-				// reset the path
-				Path = SourcePath;
+				if(!File.is_open())
+				{
+					Diagnostics->WriteErrorLog("failed to open xml source file...");
+
+					return false;
+				}
 			}
 
-			File.open(Path);
+			Diagnostics->WriteInfoLog("xml source is opened...");
 
-			return File.is_open();
+			Path = SourcePath;
+
+			File.seekg(0, std::ios_base::end);
+			FileSize = File.tellg();
+			File.seekg(0, std::ios_base::beg);
+
+			return true;
 		}
 
 		void source::Close()
 		{
-			Path.clear();
+			Diagnostics->WriteInfoLog("closing xml source file...");
 
 			if(File.is_open())
 			{
 				File.close();
 			}
+
+			Path.clear();
 		}
 
-		inline size_t source::Read(string& FileBuffer, size_t ByteCount)
+		void source::Read(size_t ByteCount)
 		{
 			if(ByteCount > 0)
 			{
-				FileBuffer.resize(ByteCount);
+				ReadCache.resize(ByteCount);
 
-				// read into resized buffer
-				return File.readsome(FileBuffer.data(), ByteCount);
+				File.read(ReadCache.data(), 
+						  ByteCount);
 			}
-
-			return 0;
 		}
 
-		inline size_t source::ReadAll(string& FileBuffer)
+		void source::ReadAll()
 		{
 			if(!File.is_open())
 			{
@@ -85,19 +107,18 @@ namespace scratchpad
 				// log failure to open xml source
 				Diagnostics->SetErrorFileNotOpen(Path.c_str());
 
-				return 0;
+				return;
 			}
+	
+			if(FileSize > 0)
+			{
+				Read(FileSize);
 
-			File.seekg(0, std::ios_base::end);
-			FileSize = File.tellg();
-			File.seekg(0, std::ios_base::beg);
-
-			size_t BytesRead = 0;
-			BytesRead = Read(FileBuffer, FileSize);
-
-			File.close();
-
-			return BytesRead;
+				if(!ReadCache.empty())
+				{
+					Buffer.str(move(ReadCache));
+				}
+			}
 		}
 	}
 }

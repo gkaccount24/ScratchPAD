@@ -30,9 +30,10 @@ namespace scratchpad
 		static const string_view XMLDeclEncodingAttribute = "encoding";
 		static const string_view XMLDeclStandaloneAttribute = "standalone";
 
-		parser::parser(xml::source* XMLSource):
-			Source(XMLSource),
-			Buffer(Source->File.rdbuf()),
+		parser::parser():
+			Source(nullptr),
+			NewDocument(nullptr),
+			Buffer(nullptr),
 			WSSkipped(0), BytesRead(0),
 			BytesWritten(0), LineCount(1),
 			Row(0), Col(0), 
@@ -48,26 +49,25 @@ namespace scratchpad
 			***/
 		}
 
-		parser::parser():
-			Source(nullptr),
-			Buffer(nullptr),
-			WSSkipped(0), BytesRead(0),
-			BytesWritten(0), LineCount(1),
-			Row(0), Col(0), 
-			ParsingState(xml::parsing_states::ParsingStartTag),
-			LastParsingState(xml::parsing_states::ParsingUnknown),
-			WriteBuffer(EMPTY_STRING_BUFFER), 
-			ExtraStringBuffer(EMPTY_STRING_BUFFER),
-			ContentBuffer(EMPTY_STRING_BUFFER), Error(false),
-			Diagnostics(xml::diagnostics::ParserDiagnostics())
-
-		{ }
-
 		parser::~parser() 
 		{
 			/**
 			*** PARSER DESTRUCTOR
 			***/
+		}
+
+		void parser::OutputMessageBuffer(std::ostream& OutputConsole)
+		{
+			string OutputMessage(move(Diagnostics->MessageBuffer.str()));
+
+			OutputConsole << OutputMessage << "\n" << std::flush;
+		}
+
+		void parser::OutputMessageBuffer(std::ofstream& OutputFile)
+		{
+			string OutputMessage(move(Diagnostics->MessageBuffer.str()));
+
+			OutputFile << OutputMessage << "\n" << std::flush;
 		}
 
 		inline bool parser::IsNL()
@@ -119,22 +119,93 @@ namespace scratchpad
 			Col = 0;
 		}
 
-		document* parser::Parse()
+		void parser::Reset()
 		{
-			document* Doc = nullptr;
+			//xml::source* Source;
+			//xml::document* NewDocument;
+			//vector<xml::document*> ParsedDocuments;
+			//streambuf* Buffer;
+
+			//size_t WSSkipped;
+			//size_t BytesRead;
+			//size_t BytesWritten;
+			//size_t LineCount;
+			//size_t Row;
+			//size_t Col;
+
+			//xml::parsing_states ParsingState;
+			//xml::parsing_states LastParsingState;
+
+			//string		 WriteBuffer;
+			//string		 ExtraStringBuffer;
+			//string		 ContentBuffer;
+
+			//bool		 Error;
+
+			//vector<string>		 NameTokens;
+			//vector<xml::markup*> Markup;
+
+			//xml::diagnostics* Diagnostics;
+
+			//xml::document* Document;
+		}
+
+		xml::document* parser::Parse(xml::source* XMLSource)
+		{
+			if(!XMLSource)
+			{
+				Diagnostics->WriteErrorLog("received nullptr as xml::source*\n");
+
+				return nullptr;
+			}
+
+			if(!XMLSource->File.is_open())
+			{
+				if(!XMLSource->Open(XMLSource->Path))
+				{
+					Diagnostics->WriteErrorLog("failed to open xml source\n");
+
+					return nullptr;
+				}
+			}
+
+			if(NewDocument)
+			{
+				ParsedDocuments.push_back(NewDocument);
+
+				/***
+				**** RESET PARSER 
+				**** STATE
+				***/
+				Reset();
+			}
+
+			NewDocument = new xml::document;
+
+			if(!NewDocument)
+			{
+				Diagnostics->WriteErrorLog("failed to allocate memory for xml doc\n");
+
+				return nullptr;
+			}
+
+			Source = XMLSource;
+			Buffer = XMLSource->Buffer.rdbuf();
 
 			while(Buffer->in_avail() > 0 && !Error)
 			{
-				if(!StateMatches(parsing_states::ParsingContent))
-				{
-					TrimWS();
-				}
 
-				ProcessState();
 				Lex();
+
 			}
 
-			return Doc;
+			if(!NewDocument->RootMarkup)
+			{
+				delete NewDocument;
+				NewDocument = nullptr;
+			}
+
+			return NewDocument;
 		}
 
 		inline void parser::PopMarkup()
@@ -334,10 +405,94 @@ namespace scratchpad
 			{
 				switch(Buffer->sgetc())
 				{
+					case '?':
+					{
+						if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						{
+							/**
+							*** verify end tag is valid
+							**/
+						}
+
+						break;
+					}
+
+					case '-':
+					{
+						if(MarkupTypeMatches(xml::markup_types::CommentTag))
+						{
+							/**
+							*** verify end tag is valid
+							**/
+						}
+
+						break;
+					}
+
+					case '=':
+					{
+						if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						{
+							/***
+							**** Switch state
+							**** Parse doc AttribLiteralValue
+							**/
+						}
+
+						break;
+					}
+
+					case '"':
+					{
+						if(!StateMatches(xml::parsing_states::ParsingLiteral))
+						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+						}
+
+						break;
+					}
+
+					case '&':
+					{
+						/***
+						**** ERROR ENCOUNTERED
+						**** EXPECTED LEXEME
+						**/
+
+						break;
+					}
+
+					case '/':
+					{
+						if(StateMatches(xml::parsing_states::ParsingContent) ||
+						   StateMatches(xml::parsing_states::ParsingLiteral) ||
+						   StateMatches(xml::parsing_states::ParsingEndTag))
+						{
+							/**
+							*** SET COMMENT END TAG
+							**/
+						}
+
+						break;
+					}
+
 					case '>':
 					{
-						// expected character
-						// in stream;
+						//if(!StateMatches(xml::parsing_states::ParsingStartTag))
+						//{
+						//	/**
+						//	*** Unexpected character encountered
+						//	*** Maybe report error
+						//	**/
+
+						//	break;
+						//}
+
+						//SwitchState(xml::parsing_states::ParsingContent);
+
 						break;
 					}
 
@@ -346,85 +501,40 @@ namespace scratchpad
 					****/
 					case '<':
 					{
-						// we can lex this character in these 
-						// scenarios
-						if(StateMatches(parsing_states::ParsingContent) ||
-						   StateMatches(parsing_states::ParsingStartTag))
+						if(StateMatches(xml::parsing_states::ParsingStartTag))
 						{
-							if(StateMatches(parsing_states::ParsingContent))
-							{
-								SwitchState(parsing_states::ParsingStartTag);
-							}	
-
-							if(Markup.empty())
-							{
-								if(TryToParseDeclStart())
-								{
-									PushMarkup(markup_types::DocDeclTag, XMLDeclStartTag.data());
-
-									break;
-								}
-							}
-							else
-							{
-								if(TryToParseTypeStart())
-								{
-									PushMarkup(markup_types::DocTypeTag, XMLDocTypeStartTag.data());
-
-									break;
-								}
-								else if(TryToParseCommentStart())
-								{
-									PushMarkup(markup_types::CommentTag, CommentStartTag.data());
-
-									break;
-								}
-								else
-								{
-									// advance input buffer
-									// fewer bytes to read;
-									Buffer->sbumpc();
-
-									if(TryToParseNameToken('>'))
-									{
-										Buffer->sbumpc();
-
-										PushMarkup(markup_types::UserTag, move(WriteBuffer));
-										SwitchState(parsing_states::ParsingContent);
-									}
-									else
-									{
-										if(!Error)
-										{
-											PushMarkup(markup_types::UserTag, move(WriteBuffer));
-											SwitchState(parsing_states::ParsingAtts);
-										}
-									}
-								}
-							}
+							/****
+							***** SWITCH STATE
+							***** PARSE NAMETOKEN
+							****/
+							SwitchState(xml::parsing_states::ParsingNameToken);
+						}
+						else if(StateMatches(xml::parsing_states::ParsingContent))
+						{	
+							/****
+							***** SWITCH STATE ParsingEndTag
+							****/
+							SwitchState(xml::parsing_states::ParsingEndTag);
 						}
 
 						break;
 					}
-					case '?':
-					{
-						/**
-						*** SET ENDTAG
-						**/
-						Markup.back()->EndTag = XMLDeclEndTag.data();
 
-						break;
-					}
-					case '-':
+					default:
 					{
-						/**
-						*** SET COMMENT END TAG
-						**/
-						Markup.back()->EndTag = CommentEndTag.data();
+						/****
+						***** For processing non structural 
+						***** markup lexemes
+						****/
 
 						break;
 					}
 				}
+
+				/****
+				***** Advance Buffer
+				****/
+				Buffer->sbumpc();
 			}
 		}
 

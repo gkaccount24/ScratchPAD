@@ -17,18 +17,15 @@ namespace scratchpad
 		{
 
 		public:
-
 			 source(string SourcePath);
 
 		public:
-
 			 source();
 			~source();
 
 		public:
-
-			size_t Read(string& FileBuffer, size_t ByteCount);
-			size_t ReadAll(string& FileBuffer);
+			void Read(size_t ByteCount);
+			void ReadAll();
 
 			bool Open(string SourcePath);
 			void Close();
@@ -36,11 +33,27 @@ namespace scratchpad
 		public:
 			/****
 			***** SOURCE
-			***** FILE HANDLE
+			***** FILE PATH
 			****/
 			string			  Path;
+
+			/****
+			***** SOURCE
+			***** FILE HANDLE & 
+			***** FILE SIZE
+			****/
 			fstream			  File;
 			size_t			  FileSize;
+
+			/****
+			***** BUFFER STREAM
+			****/
+			stringstream Buffer;
+			string		 ReadCache;
+			
+			/****
+			***** DIAGNOSTICS
+			****/
 			xml::diagnostics* Diagnostics;
 		};
 	}

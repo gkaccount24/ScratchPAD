@@ -89,13 +89,12 @@ namespace scratchpad
 			void SetErrorFailedToReadFile(const char* XMLSourceDiskPath);
 
 		private:
-
-			stringstream MessageBuffer;
 			string		 WriteBuffer;
 
 		public:
-			error_codes   ExitCode;
-			bool		  Error;
+			stringstream MessageBuffer;
+			error_codes  ExitCode;
+			bool		 Error;
 
 		};
 	}

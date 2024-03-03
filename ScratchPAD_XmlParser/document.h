@@ -27,7 +27,15 @@ namespace scratchpad
 			 document() = default;
 			~document() = default;
 
-			void SetDocAttribute(xml_decl_attributes AttributeEnum, string Value);
+		public:
+
+			void SetDocAttribute(xml_decl_attributes AttributeEnum, 
+								 string Value);
+			void Close();
+
+		private:
+			
+			void Cleanup(markup* Markup);
 
 		public:
 			/***
@@ -36,7 +44,7 @@ namespace scratchpad
 			string		Decl[(int) xml_decl_attributes::Count];
 			bool		ParsedDecl;
 
-			markup*		Markup;
+			markup*		RootMarkup;
 		};
 	}
 }

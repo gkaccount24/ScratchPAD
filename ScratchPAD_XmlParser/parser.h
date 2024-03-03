@@ -30,9 +30,11 @@ namespace scratchpad
 			ParsingAtts		  = 4,
 			ParsingType		  = 5,
 			ParsingComment    = 6,
-			ParsingContent	  = 7,
-			ParsingUnknown	  = 8,
-			ParsingStateCount = 9
+			ParsingNameToken  = 7,
+			ParsingContent	  = 8,
+			ParsingLiteral    = 9,
+			ParsingUnknown	  = 10,
+			ParsingStateCount = 11
 		};
 
 		class parser
@@ -40,15 +42,22 @@ namespace scratchpad
 
 		public:
 
-			explicit parser(xml::source* XMLSource);
-
 			 parser();
 			~parser();
 
 		public:
 
-			xml::document* Parse();
+			xml::document* Parse(xml::source* XMLSource);
 			void		   Close();
+
+		public:
+			/****
+			***** LOGGER/OUTPUT
+			***** WRITING METHODS
+			****/
+
+			void OutputMessageBuffer(std::ostream& OutputConsole);
+			void OutputMessageBuffer(std::ofstream& File);
 
 		private:
 			/****
@@ -112,11 +121,38 @@ namespace scratchpad
 			void ProcessState();
 			void Lex();
 
+			/****
+			***** PARSER RESET 
+			***** METHOD, PREPARES
+			***** FOR another PARSER 
+			***** RUN
+			****/
+			void Reset();
+
+			/****
+			***** Get markup ptr
+			****/
+
+			inline bool MarkupTypeMatches(xml::markup_types MarkupType)
+			{
+				return Markup.back()->Type == MarkupType;
+			}
+
 		private:
 			/****
 			***** XML SOURCE DATA
 			****/
 			xml::source* Source;
+
+			/****
+			***** XML DOCUMENT DATA
+			****/
+			xml::document* NewDocument;
+
+			/****
+			***** ARRAY OF PARSED DOCUMENTS
+			****/
+			vector<xml::document*> ParsedDocuments;
 
 			/****
 			***** XML SOURCE BUFFER
@@ -165,11 +201,18 @@ namespace scratchpad
 			vector<string>		 NameTokens;
 			vector<xml::markup*> Markup;
 
+			/****
+			***** Expected Char
+			****/
+
+			char Expected;
+
 		public:
 			/****
 			***** XML PARSER DIAGNOSTICS
 			****/
 			xml::diagnostics* Diagnostics;
+
 		};
 	}
 }

@@ -3,165 +3,217 @@
 #include "document.h"
 
 #include <string_view>
-#include <initializer_list>
 
-using std::initializer_list;
 using std::string_view;
-using std::pair;
 
 #undef main
 
-static constexpr size_t XMLSourceFileCount = 9;
-
-static constexpr string_view XMLSourceFiles[XMLSourceFileCount]
+namespace scratchpad
 {
-	"Z:\\data\\xml samples\\books.xml",
-	"Z:\\data\\xml samples\\supplier.xml",
-	"Z:\\data\\xml samples\\region.xml",
-	"Z:\\data\\xml samples\\partsupp_pv.xml",
-	"Z:\\data\\xml samples\\part_pv.xml",
-	"Z:\\data\\xml samples\\orders_pv.xml",
-	"Z:\\data\\xml samples\\nation.xml",
-	"Z:\\data\\xml samples\\lineitem_pv.xml",
-	"Z:\\data\\xml samples\\customer_pv.xml"
-};
+	static constexpr size_t XMLSourceFileCount = 9;
 
-class file_switcher
-{
-	struct file_idx
+	static constexpr string_view XMLSourceFiles[XMLSourceFileCount]
 	{
-		string				     Path;
-		scratchpad::xml::source* Source;
+		"Z:\\data\\xml samples\\books.xml",
+		"Z:\\data\\xml samples\\supplier.xml",
+		"Z:\\data\\xml samples\\region.xml",
+		"Z:\\data\\xml samples\\partsupp_pv.xml",
+		"Z:\\data\\xml samples\\part_pv.xml",
+		"Z:\\data\\xml samples\\orders_pv.xml",
+		"Z:\\data\\xml samples\\nation.xml",
+		"Z:\\data\\xml samples\\lineitem_pv.xml",
+		"Z:\\data\\xml samples\\customer_pv.xml"
 	};
 
-public:
-
-	 file_switcher(const string_view* SourceFilePaths, size_t SourceFileCount);
-	~file_switcher();
-
-	int32_t OpenFile(string FilePath);
-	void CloseFile(size_t FileIdx);
-
-private:
-
-	vector<file_idx> Files;
-
-};
-
-file_switcher::file_switcher(const string_view* SourceFiles, size_t SourceFileCount)
-{
-	/***
-	**** FILE SWITCHER 
-	***** CONSTRUCTOR
-	***/
-
-	for(size_t Idx = 0; Idx < SourceFileCount; Idx++)
+	class file_switcher
 	{
-		if(!SourceFiles[Idx].empty())
+		/*** file index
+		**** type for holding
+		**** switching xml files
+		***/
+		struct file_idx
 		{
-			file_idx NewFileIdx 
-			{ 
+			string				       Path;
+			scratchpad::xml::source* Source;
+			scratchpad::xml::document* Document;
+			bool Parsed;
+		};
+
+	public:
+
+		file_switcher();
+		~file_switcher();
+
+	public:
+
+		/*** methods for managing
+		**** files added to the
+		**** file switcher
+		***/
+		int32_t AddFile(string FilePath);
+		void CloseFile(size_t FileIdx);
+
+		/**
+		**** Allows file switcher to 
+		**** invoke the parser
+		***/
+		xml::document* RunParser(scratchpad::xml::parser* Parser, size_t FileIdx);
+
+	public:
+
+		vector<file_idx> Files;
+
+	};
+
+	file_switcher::file_switcher()
+	{
+		/***
+		**** FILE SWITCHER
+		***** CONSTRUCTOR
+		***/
+	}
+
+	file_switcher::~file_switcher()
+	{
+		/***
+		**** FILE SWITCHER
+		***** DESTRUCTOR
+		***/
+
+		size_t FileCount = Files.size();
+
+		for(size_t Idx = 0; Idx < FileCount; Idx++)
+		{
+			if(Files[Idx].Source)
+			{
+				Files[Idx].Source->Close();
+
+				delete Files[Idx].Source;
+				Files[Idx].Source = nullptr;
+			}
+		}
+	}
+
+	xml::document* file_switcher::RunParser(xml::parser* Parser, size_t FileIdx)
+	{
+		xml::document* Document = nullptr;
+
+		if(!Files.empty() && 
+		   FileIdx >= 0   && 
+		   FileIdx < Files.size())
+		{
+			if(!Files[FileIdx].Parsed)
+			{
+				Document = Parser->Parse(Files[FileIdx].Source);
+
+				if(Document)
+				{
+					Files[FileIdx].Parsed = true;
+					Files[FileIdx].Document = Document;
+				}
+			}
+		}
+
+		return Document;
+	}
+
+	int32_t file_switcher::AddFile(string FilePath)
+	{
+		if(!FilePath.empty())
+		{
+			file_idx NewFileIdx
+			{
 				/**
-				*** PATH AS C 
+				*** PATH AS C
 				*** STYLE STRING
 				**/
-				SourceFiles[Idx].data(),
+				FilePath,
 
 				/**
 				*** DEFAULT
 				*** SOURCE PTR
+				*** BY DEFAULT FILE SHOULD BE
+				*** OPEN AFTER CONSTRUCTION
 				**/
-				nullptr
+				new xml::source(FilePath),
+
+				/**
+				*** DEFAULT
+				*** DOCUMENT PTR
+				**/
+				nullptr,
+
+				/**
+				*** DEFAULT
+				*** PARSED STATE
+				**/
+				false
 			};
 
-			Files.push_back(NewFileIdx);
+			if(NewFileIdx.Source->File.is_open())
+			{
+				NewFileIdx.Source->ReadAll();
+
+				if(NewFileIdx.Source->FileSize > 0)
+				{
+					Files.push_back(NewFileIdx);
+
+					return Files.size() - 1;
+				}
+			}
 		}
-	}
-}
 
-file_switcher::~file_switcher()
-{
-	/***
-	**** FILE SWITCHER 
-	***** DESTRUCTOR 
-	***/
-
-	size_t FileCount = Files.size();
-
-	for(size_t Idx = 0; Idx < FileCount; Idx++)
-	{
-		if(Files[Idx].Source)
-		{
-			Files[Idx].Source->Close();
-
-			delete Files[Idx].Source;
-			Files[Idx].Source = nullptr;
-		}
-	}
-}
-
-int32_t file_switcher::OpenFile(string FilePath)
-{
-	if(FilePath.empty())
-	{
-		file_idx NewFileIdx 
-		{ 
-			/**
-			*** PATH AS C 
-			*** STYLE STRING
-			**/
-			FilePath,
-
-			/**
-			*** DEFAULT
-			*** SOURCE PTR
-			**/
-			new scratchpad::xml::source(FilePath)
-		};
-
-		if(NewFileIdx.Source->File.is_open())
-		{
-			Files.push_back(NewFileIdx);
-
-			return Files.size() - 1;
-		}
+		return -1;
 	}
 
-	return -1;
-}
-
-void file_switcher::CloseFile(size_t FileIdx)
-{
-	if(!Files.empty())
+	void file_switcher::CloseFile(size_t FileIdx)
 	{
-		size_t FileCount = Files.size();
-
-		if(FileIdx < FileCount && FileIdx > 0)
+		if(!Files.empty())
 		{
-			Files[FileIdx].Source->Close();
+			size_t FileCount = Files.size();
 
-			delete Files[FileIdx].Source;
-			Files[FileIdx].Source = nullptr;
+			if(FileIdx > 0 && FileIdx < FileCount)
+			{
+
+				// dealloc memory
+				delete Files[FileIdx].Source;
+				Files[FileIdx].Source = nullptr;
+
+			}
 		}
 	}
 }
 
 int main(int ArgCount, char* ArgV[])
 {
-	file_switcher FileSwitcher(XMLSourceFiles, XMLSourceFileCount);
-
 	/***
-	**** PRIMARY PARSED XML 
-	**** DOCUMENT
+	**** PRIMARY XML FILE SWITCHER FOR MAINTAINING
+	**** XML SOURCE & DOCUMENT FILES
 	***/
-	scratchpad::xml::document* XMLDocument = nullptr;
+	scratchpad::file_switcher FileSwitcher;
+
+	int32_t BookFileIdx = -1;
+	int32_t SupplierIdx = -1;
+	int32_t CustomerIdx = -1;
+	int32_t OrdersIdx = -1;
+
+	BookFileIdx = FileSwitcher.AddFile(scratchpad::XMLSourceFiles[0].data());
+	SupplierIdx = FileSwitcher.AddFile(scratchpad::XMLSourceFiles[1].data());
+	CustomerIdx = FileSwitcher.AddFile(scratchpad::XMLSourceFiles[2].data());
+	OrdersIdx   = FileSwitcher.AddFile(scratchpad::XMLSourceFiles[5].data());
 
 	/***
 	**** PRIMARY SOURCE &
 	**** PARSER code instances
 	***/
-	scratchpad::xml::source XMLSource;
 	scratchpad::xml::parser XMLParser;
+
+	/***
+	**** XML Document
+	***/
+	scratchpad::xml::document* Document = nullptr;
+
+	Document = FileSwitcher.RunParser(&XMLParser, BookFileIdx);
 
 	return XMLParser.Diagnostics->ExitCode;
 }
