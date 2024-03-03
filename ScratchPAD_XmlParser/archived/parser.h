@@ -74,6 +74,7 @@ namespace scratchpad
 			***** XML UTILITY/  
 			***** CONVENIENCE METHODS
 			****/
+			void Rewind(size_t Count);
 			bool IsNL();
 			bool IsWS();
 			void TrimWS();
@@ -86,14 +87,57 @@ namespace scratchpad
 			bool LastStateMatches(parsing_states XMLParsingState);
 			void SwitchState(parsing_states NextState);
 
-			bool MarkupTypeMatches(xml::markup_types MarkupType);
+			/****
+			***** MATCH BYTES 
+			****/
+			bool Match(const char* Bytes, size_t ByteCount);
+
+		private:
+			/****
+			***** TOKEN MATCHING
+			***** METHODS
+			****/
+			bool TryToParseNameStart();
+			bool TryToParseNameToken(char Delim);
+			bool TryToParseLiteral();
+			bool TryToParseContent();
+
+			bool TryToParseStartTag(string TagText);
+			bool TryToParseEndTag(string TagText);
+
+			bool TryToParseDeclStart();
+			bool TryToParseDeclEnd();
+
+			bool TryToParseTypeStart();
+			bool TryToParseTypeEnd();
+
+			bool TryToParseCommentStart();
+			bool TryToParseCommentEnd();
 
 		private:
 			/****
 			***** MAIN STATE PROCESSING &
 			***** LEXING METHODS
 			****/
+			void ProcessState();
 			void Lex();
+
+			/****
+			***** PARSER RESET 
+			***** METHOD, PREPARES
+			***** FOR another PARSER 
+			***** RUN
+			****/
+			void Reset();
+
+			/****
+			***** Get markup ptr
+			****/
+
+			inline bool MarkupTypeMatches(xml::markup_types MarkupType)
+			{
+				return Markup.back()->Type == MarkupType;
+			}
 
 		private:
 			/****
