@@ -72,8 +72,7 @@ namespace scratchpad
 
 		inline bool parser::IsNL()
 		{
-			return (Buffer->sgetc() == '\r' ||
-					Buffer->sgetc() == '\n');
+			return Buffer->sgetc() == '\n';
 		}
 
 		inline bool parser::IsWS()
@@ -90,14 +89,7 @@ namespace scratchpad
 
 			while(Buffer->in_avail() > 0 && IsWS() && !Error)
 			{
-				if(IsNL())
-				{
-					LineCount++;
-					Row++;
-				}
-
-				WSSkipped++;
-
+		
 				// advance input buffer
 				// less bytes to read after a bump
 				Buffer->sbumpc();
@@ -410,6 +402,22 @@ namespace scratchpad
 			{
 				switch(Buffer->sgetc())
 				{
+					case '\t':
+					case '\r':
+					case '\n':
+					case ' ':
+					{
+						if(IsNL())
+						{
+							LineCount++;
+							Row++;
+						}
+
+						WSSkipped++;
+
+						break;
+					}
+
 					case '?':
 					{
 						if(StateMatches(xml::parsing_states::ParsingDeclAtts) &&
@@ -443,12 +451,13 @@ namespace scratchpad
 						   StateMatches(xml::parsing_states::ParsingNameToken) ||
 						   StateMatches(xml::parsing_states::ParsingContent))
 						{
-							// WriteBuffer << Buffer->sgetc();
+							Diagnostics->WriteInfoLog("parsing literals, name tokens, tag content\n");
 
 						}
 
 						else if(StateMatches(xml::parsing_states::ParsingComment))
 						{
+							Diagnostics->WriteInfoLog("parsing comment \n");
 							/***
 							**** PARSING COMMENT
 							***/
@@ -496,17 +505,6 @@ namespace scratchpad
 							**/
 						}
 
-						// if()
-						// if(MarkupTypeMatches(xml::markup_types::DocDeclTag))
-						//{
-							/***
-							**** Switch state
-							**** Parse doc AttribLiteralValue
-							**/
-
-							// SwitchState(xml::parsing_states::ParsingLiteral);
-						//}
-
 						break;
 					}
 
@@ -528,7 +526,13 @@ namespace scratchpad
 
 					case '&':
 					{
-						if(StateMatches())
+						if(StateMatches(xml::parsing_states::ParsingLiteral) ||
+						   StateMatches(xml::parsing_states::ParsingContent))
+						{
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+							break;
+						}
 
 						/***
 						**** ERROR ENCOUNTERED
@@ -590,6 +594,13 @@ namespace scratchpad
 					****/
 					case '<':
 					{
+						if(StateMatches(xml::parsing_states::ParsingLiteral))
+						{
+							Diagnostics->SetErrorIllegalLiteralVal(Buffer->sgetc());
+
+							break;
+						}
+
 						if(StateMatches(xml::parsing_states::ParsingStartTag))
 						{
 							Diagnostics->WriteInfoLog("switched state: now parsing start tag");

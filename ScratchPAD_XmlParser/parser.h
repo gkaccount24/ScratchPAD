@@ -186,7 +186,6 @@ namespace scratchpad
 			***** FOR WRITE BUFFERING
 			****/
 			string		 WriteBuffer;
-			string		 ExtraStringBuffer;
 			string		 ContentBuffer;
 
 			/****

@@ -32,6 +32,7 @@ namespace scratchpad
 			OutOfOrderDeclAttribute = -115,
 			FileNotFound = -116,
 			FailedToReadFile = -117,
+			Undefined		 = -118,
 			Unknown
 		};
 
