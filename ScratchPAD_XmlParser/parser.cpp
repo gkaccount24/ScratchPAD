@@ -23,7 +23,10 @@ namespace scratchpad
 	namespace xml
 	{
 		static const string_view XMLDeclStartTag = "xml";
-		static const string_view XMLDeclEndTag	 = "?>";
+
+		static const string_view XMLDeclStartTagWrapped = "<?xml";
+		static const string_view XMLDeclEndTagWrapped = "?>";
+
 		static const string_view XMLDocTypeStartTag = "DOCTYPE";
 		static const string_view XMLDocTypeEndTag = ">";
 		static const string_view CommentStartTag = "<!--";
@@ -157,9 +160,363 @@ namespace scratchpad
 
 			while(Buffer->in_avail() > 0 && !Error)
 			{
+				switch(Buffer->sgetc())
+				{
+					case '\t':
+					case '\r':
+					case '\n':
+					case ' ':
+					{
 
-				Lex();
+						if(StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+							/***
+							**** MATCH NAME TOKEN AGAINST
+							**** EXPECTED NAME TOKEN
+							***/
 
+							if(BytesRead == NextExpectedToken.size())
+							{
+								if(WriteBuffer != NextExpectedToken)
+								{
+									Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+									/**
+									*** SET ERROR STATE
+									**/
+								}
+
+								BytesRead = 0;
+								WriteBuffer.clear();
+
+								PushMarkup(xml::markup_types::DocDeclTag, 
+										   XMLDeclStartTagWrapped.data());
+							}
+						}
+
+						if(IsNL())
+						{
+							LineCount++;
+							Row++;
+						}
+
+						WSSkipped++;
+
+						break;
+					}
+
+					case '?':
+					{
+						WSSkipped = 0;
+
+						if(LastStateMatches(xml::parsing_states::ParsingStartTag) &&
+						   StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+							/****
+							***** SWITCH STATE
+							***** Parsing START TAG
+							***** NEEDS TO MATCH ExpectedToken
+							****/
+
+							NextExpectedToken = XMLDeclStartTag;
+							BytesRead = 0;
+							WriteBuffer.clear();
+						}
+						//else if(StateMatches(xml::parsing_states::ParsingDeclAtts) &&
+								//MarkupTypeMatches(xml::markup_types::DocDeclTag))
+						{
+							//Diagnostics->WriteInfoLog("parsing end tag\n");
+
+							/**
+							*** SWITCH STATE
+							*** PARSING END TAG
+							**/
+
+							//SwitchState(xml::parsing_states::ParsingEndTag);
+						}
+						//else
+						{
+							/**
+							*** SET ERROR STATE
+							*** UNCOSED START TAG
+							**/
+	
+							// Diagnostics->SetErrorUnclosedTag();
+						}
+
+						break;
+					}
+
+					case '-':
+					{
+						WSSkipped = 0;
+
+						if(StateMatches(xml::parsing_states::ParsingLiteral)   ||
+						   StateMatches(xml::parsing_states::ParsingNameToken) ||
+						   StateMatches(xml::parsing_states::ParsingContent))
+						{
+
+							Diagnostics->WriteInfoLog("parsing literals, name tokens, tag content\n");
+
+						}
+
+						else if(StateMatches(xml::parsing_states::ParsingComment))
+						{
+							Diagnostics->WriteInfoLog("parsing comment \n");
+
+							/***
+							**** PARSING COMMENT
+							***/
+
+							if(!MarkupTypeMatches(xml::markup_types::CommentTag))
+							{
+								/***
+								**** SET ERROR
+								**** STATE
+								***/
+							}
+						}
+
+						break;
+					}
+
+					case '=':
+					{
+						WSSkipped = 0;
+
+						if(StateMatches(xml::parsing_states::ParsingDeclAtts))
+						{
+							if(!MarkupTypeMatches(xml::markup_types::DocDeclTag))
+							{
+								/**
+								**** SetErrorState();
+								*** ERROR failed
+								**/
+
+								break;
+							}
+
+							/**
+							*** Parsing Decl attributes
+							*** we need to keep track of
+							*** attribute index
+							**/
+
+							break;
+						}
+						else if(StateMatches(xml::parsing_states::ParsingAtts))
+						{
+							/**
+							*** Parsing generic 
+							*** markup attributes
+							**/
+						}
+
+						break;
+					}
+
+					case '"':
+					{
+						WSSkipped = 0;
+
+						if(!StateMatches(xml::parsing_states::ParsingLiteral) || 
+						   !StateMatches(xml::parsing_states::ParsingContent))
+						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+							break;
+						}
+
+						break;
+					}
+
+					case '&':
+					{
+						WSSkipped = 0;
+
+						if(StateMatches(xml::parsing_states::ParsingLiteral) ||
+						   StateMatches(xml::parsing_states::ParsingContent))
+						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+							break;
+						}
+
+						break;
+					}
+
+					case '/':
+					{
+						WSSkipped = 0;
+
+						if(!StateMatches(xml::parsing_states::ParsingContent) ||
+						   !StateMatches(xml::parsing_states::ParsingLiteral) ||
+						   !StateMatches(xml::parsing_states::ParsingEndTag))
+						{
+							/**
+							*** SET COMMENT END TAG
+							**/
+
+							Diagnostics->SetErrorState(xml::error_codes::Undefined);
+
+							break;
+						}
+
+						break;
+					}
+
+					case '>':
+					{
+						WSSkipped = 0;
+
+						if(!LastStateMatches(xml::parsing_states::ParsingStartTag) ||
+						   !LastStateMatches(xml::parsing_states::ParsingEndTag))
+						{
+							Diagnostics->WriteErrorLog("unexpected lexeme\n");
+
+							/****
+							****** Set Error State
+							****** Unexpected Lexeme
+							****/
+
+							Diagnostics->SetErrorMalformedStartTag();
+
+							break;
+						}
+
+						Diagnostics->WriteInfoLog("parsed start tag\n");
+
+						break;
+					}
+
+					/****
+					***** PARSE XML STARTING ELEMENT
+					****/
+					case '<':
+					{
+						WSSkipped = 0;
+
+						if(StateMatches(xml::parsing_states::ParsingLiteral))
+						{
+							Diagnostics->SetErrorIllegalLiteralVal(Buffer->sgetc());
+
+							break;
+						}
+
+						if(StateMatches(xml::parsing_states::ParsingStartTag))
+						{
+							Diagnostics->WriteInfoLog("switched state: now parsing start tag");
+
+							/****
+							***** SWITCH STATE
+							***** PARSE NAMETOKEN
+							****/
+							SwitchState(xml::parsing_states::ParsingNameToken);
+						}
+						else if(StateMatches(xml::parsing_states::ParsingContent))
+						{	
+							Diagnostics->WriteInfoLog("switched state: now parsing end tag");
+
+							/****
+							***** SWITCH STATE 
+							***** ParsingEndTag
+							****/
+							SwitchState(xml::parsing_states::ParsingEndTag);
+						}
+
+						break;
+					}
+
+					default:
+					{
+						WSSkipped = 0;
+
+						/****
+						***** For processing non structural 
+						***** markup lexemes
+						****/
+
+						if(StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+							Diagnostics->WriteInfoLog("scanning name token...\n");
+
+							if(BytesRead == 0)
+							{
+								Diagnostics->WriteInfoLog("parsing name token start\n");
+
+								/*** [4]		NameStartChar	   :: = ":" | [A - Z] | "_" | [a - z] | [#xC0 - #xD6] | 
+								****                                          [#xD8 - #xF6] | [#xF8 - #x2FF] | [#x370 - #x37D] | 
+								****                                          [#x37F - #x1FFF] | [#x200C - #x200D] | [#x2070 - #x218F] | 
+								****                                          [#x2C00 - #x2FEF] | [#x3001 - #xD7FF] | [#xF900 - #xFDCF] | 
+								****                                          [#xFDF0 - #xFFFD] | [#x10000 - #xEFFFF]*/
+
+								const int UpperCaseLower = StaticCast(int, 'A');
+								const int UpperCaseHigher = StaticCast(int, 'Z');
+
+								const int LowerCaseLower = StaticCast(int, 'a');
+								const int LowerCaseHigher = StaticCast(int, 'z');
+
+								int DebugVal = Buffer->sgetc();
+
+								bool IsLower = (StaticCast(int, Buffer->sgetc()) >= LowerCaseLower &&
+												StaticCast(int, Buffer->sgetc()) <= LowerCaseHigher);
+								bool IsUpper = (StaticCast(int, Buffer->sgetc()) >= UpperCaseLower &&
+												StaticCast(int, Buffer->sgetc()) <= UpperCaseHigher);
+
+								bool IsUnderscore = Buffer->sgetc() == '_';
+
+								bool IsValid = (IsLower || IsUpper || IsUnderscore);
+
+								if(!IsValid)
+								{
+									Diagnostics->SetErrorIllegalNameStart(Buffer->sgetc());
+								}
+
+								/****
+								***** APPEND TO WRITE BUFFER
+								****/
+								WriteBuffer += Buffer->sgetc();
+								BytesRead++;
+							}
+							else
+							{
+								if(!isalpha(Buffer->sgetc()) &&
+								   !isdigit(Buffer->sgetc()))
+								{
+									/***
+									**** SET ERROR STATE
+									***/
+
+									char Cstr = Buffer->sgetc();
+
+									Diagnostics->SetErrorState(xml::error_codes::Undefined);
+								}
+								else
+								{
+									WriteBuffer += Buffer->sgetc();
+									BytesRead++;
+								}
+							}
+						}
+
+						break;
+					}
+				}
+
+				/****
+				***** Advance Buffer
+				****/
+				Buffer->sbumpc();
 			}
 
 			if(!NewDocument->RootMarkup)
@@ -215,7 +572,7 @@ namespace scratchpad
 
 		bool parser::MarkupTypeMatches(xml::markup_types MarkupType)
 		{
-			Markup.back()->Type == MarkupType;
+			return Markup.back()->Type == MarkupType;
 		}
 
 		void parser::Lex()
