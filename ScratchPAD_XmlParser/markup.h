@@ -21,7 +21,7 @@ namespace scratchpad
 			CommentTag,
 			ElementType,
 			EntityDecl,
-			UserTag
+			GenericTag
 		};
 
 		struct markup_attribute

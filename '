@@ -230,7 +230,6 @@ namespace scratchpad
 							Buffers[(int) buffer_idx::NameToken].clear();
 
 							ExpectedNameTok = XMLDeclStartTagWrapped;
-							ExpectedType = xml::markup_types::DocDeclTag;
 						}
 
 						break;
@@ -244,7 +243,7 @@ namespace scratchpad
 						{
 							Diagnostics->WriteInfoLog("lexing literal\n");
 
-							Buffers[(int) buffer_idx::Literal] += Buffer->sgetc();
+							Buffers[(int)buffer_idx::Literal] += Buffer->sgetc();
 						}
 						else if(StateMatches(xml::parsing_states::ParsingNameToken))
 						{
@@ -273,23 +272,13 @@ namespace scratchpad
 						if(LastStateMatches(xml::parsing_states::ParsingDeclAtts) &&
 						   StateMatches(xml::parsing_states::ParsingNameToken))
 						{
-							if(Markup.back()->Attributes.size() == 1 && 
-							   Buffers[(int) buffer_idx::NameToken] != "version")
-							{
-								Diagnostics->SetErrorState(xml::error_codes::Undefined);
-							}
-							else if(Markup.back()->Attributes.size() == 2 && 
-									Buffers[(int) buffer_idx::NameToken] != "encoding")
-							{
-								Diagnostics->SetErrorState(xml::error_codes::Undefined);
-							}
-							else if(Markup.back()->Attributes.size() == 3 &&
-									Buffers[(int) buffer_idx::NameToken] != "standalone")
-							{
-								Diagnostics->SetErrorState(xml::error_codes::Undefined);
-							}
 
-							SwitchState(xml::parsing_states::ParsingLiteral);
+						}
+
+						// if(LastStateMatches(xml::parsing_states::ParsingDeclAtts) && 
+						  // StateMatches(xml::parsing_states::ParsingNameToken))
+						{
+
 						}
 
 						break;
@@ -302,6 +291,11 @@ namespace scratchpad
 						if(!StateMatches(xml::parsing_states::ParsingLiteral) || 
 						   !StateMatches(xml::parsing_states::ParsingContent))
 						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+
 							Diagnostics->SetErrorState(xml::error_codes::Undefined);
 
 							break;
@@ -317,6 +311,11 @@ namespace scratchpad
 						if(StateMatches(xml::parsing_states::ParsingLiteral) ||
 						   StateMatches(xml::parsing_states::ParsingContent))
 						{
+							/***
+							**** ERROR ENCOUNTERED
+							**** EXPECTED LEXEME
+							**/
+
 							Diagnostics->SetErrorState(xml::error_codes::Undefined);
 
 							break;
@@ -366,6 +365,9 @@ namespace scratchpad
 						break;
 					}
 
+					/****
+					***** PARSE XML STARTING ELEMENT
+					****/
 					case '<':
 					{
 						WSSkipped = 0;

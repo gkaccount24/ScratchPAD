@@ -37,6 +37,15 @@ namespace scratchpad
 			ParsingStateCount = 11
 		};
 
+		enum class buffer_idx
+		{
+			Markup = 0,
+			NameToken = 1,
+			Literal = 2,
+			Content = 3,
+			Count = 4
+		};
+
 		class parser
 		{
 
@@ -90,13 +99,6 @@ namespace scratchpad
 
 		private:
 			/****
-			***** MAIN STATE PROCESSING &
-			***** LEXING METHODS
-			****/
-			void Lex();
-
-		private:
-			/****
 			***** XML SOURCE DATA
 			****/
 			xml::source* Source;
@@ -141,8 +143,7 @@ namespace scratchpad
 			***** GENERIC STRING
 			***** FOR WRITE BUFFERING
 			****/
-			string		 WriteBuffer;
-			string		 ContentBuffer;
+			string Buffers[(int) buffer_idx::Count];
 
 			/****
 			***** ERROR & 
@@ -164,8 +165,10 @@ namespace scratchpad
 			***** Expected Char
 			****/
 
-			char   NextExpected;
-			string NextExpectedToken;
+			char			  ExpectedByte;
+			string			  ExpectedNameTok;
+			string			  ExpectedMarkup;
+			xml::markup_types ExpectedType;
 
 		public:
 			/****
